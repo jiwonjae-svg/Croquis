@@ -37,6 +37,9 @@ from PyQt6.QtGui import (
     QMouseEvent, QPaintEvent, QKeyEvent, QAction, QDrag
 )
 
+# 리소스 로더 import
+from resource_loader import get_resource_loader
+
 # ============== 크기 상수 ==============
 # 덱 편집창 리스트 아이템 크기
 DECK_ICON_WIDTH = 100
@@ -51,6 +54,84 @@ HISTORY_ICON_HEIGHT = 150
 HISTORY_GRID_WIDTH = 320
 HISTORY_GRID_HEIGHT = 185
 HISTORY_SPACING = 5
+
+# ============== 로깅 메시지 ==============
+LOG_MESSAGES = {
+    # Program lifecycle
+    "program_started": "Program started",
+    "program_closed": "Program closed",
+    
+    # Croquis actions
+    "screenshot_mode_enabled": "Screenshot mode enabled",
+    "screenshot_mode_cancelled": "Screenshot mode cancelled",
+    "croquis_pair_saved": "Croquis pair saved",
+    "croquis_previous": "Previous croquis",
+    "croquis_next": "Next croquis",
+    "croquis_paused": "Croquis paused",
+    "croquis_playing": "Croquis playing",
+    "croquis_stopped": "Croquis stopped",
+    "croquis_window_closed": "Croquis window closed",
+    "croquis_started": "Croquis started with {} images",
+    
+    # Deck operations
+    "deck_created": "New deck created",
+    "deck_loaded": "Deck loaded",
+    "deck_saved": "Deck saved",
+    "deck_selected": "Deck selected: {}",
+    "deck_editor_opened": "Deck editor opened",
+    "deck_editor_closed": "Deck editor closed",
+    
+    # Image operations
+    "images_deleted": "Images deleted: {}",
+    "image_added_to_deck": "Image added to deck: {}",
+    "image_exported": "Image exported: {} -> {}",
+    "image_export_failed": "Image export failed: {}",
+    "filename_changed": "Filename changed: {} -> {}",
+    
+    # Difficulty
+    "difficulty_changed": "Difficulty changed: {} -> {}",
+    
+    # Tags
+    "tags_changed": "Tags changed: {} -> {}",
+    "tags_enabled": "Enabled tags: {}",
+    "tag_loading_failed": "Tag loading failed: {}",
+    
+    # Settings
+    "image_width_changed": "Image width changed: {}",
+    "image_height_changed": "Image height changed: {}",
+    "grayscale_mode": "Grayscale mode: {}",
+    "flip_horizontal": "Flip horizontal: {}",
+    "timer_position_changed": "Timer position: {}",
+    "timer_font_size_changed": "Timer font size changed: {}",
+    "timer_time_changed": "Timer time changed: {} seconds",
+    "language_changed": "Language changed: {}",
+    "dark_mode": "Dark mode: {}",
+    
+    # URL and Pinterest
+    "pinterest_url_detected": "Pinterest pin URL detected: {}",
+    "pinterest_image_extracted": "Pinterest image URL extracted: {}",
+    "pinterest_extraction_failed": "Pinterest image extraction failed: {}",
+    "downloading_image": "Downloading image from URL: {}",
+    "url_download_failed": "URL image download failed: {}",
+    
+    # Croquis view
+    "croquis_large_view_selected": "Croquis large view selected",
+    "croquis_large_view_opened": "Croquis large view opened",
+    
+    # History
+    "history_opened": "Croquis history opened",
+    "history_closed": "Croquis history closed",
+    
+    # Alarm
+    "alarm_settings_opened": "Alarm settings opened",
+    "alarm_settings_closed": "Alarm settings closed",
+    
+    # Memo
+    "memo_dialog_opened": "Croquis memo dialog opened: {}",
+    "memo_saved": "Croquis memo saved: {}",
+    "memo_loading_failed": "Memo loading failed: {}",
+    "memo_saving_failed": "Memo saving failed: {}",
+}
 
 # ============== 로깅 설정 ==============
 def setup_logging():
@@ -73,13 +154,13 @@ def setup_logging():
     return logging.getLogger('Croquis')
 
 logger = setup_logging()
-logger.info("프로그램 시작")
+logger.info(LOG_MESSAGES["program_started"])
 
 
 # ============== 다국어 지원 ==============
 TRANSLATIONS = {
     "ko": {
-        "app_title": "크로키 연습 앱",
+        "app_title": "Croquis",
         "heatmap_title": "크로키 히트맵",
         "croquis_count": "크로키 횟수",
         "less": "Less",
@@ -137,7 +218,7 @@ TRANSLATIONS = {
         "close": "닫기",
     },
     "en": {
-        "app_title": "Croquis Practice App",
+        "app_title": "Croquis",
         "heatmap_title": "Croquis Heatmap",
         "croquis_count": "Croquis Count",
         "less": "Less",
@@ -193,6 +274,64 @@ TRANSLATIONS = {
         "add_memo": "Add Memo",
         "memo": "Memo",
         "close": "Close",
+    },
+    "ja": {
+        "app_title": "クロッキー",
+        "heatmap_title": "クロッキーヒートマップ",
+        "croquis_count": "クロッキー回数",
+        "less": "少ない",
+        "more": "多い",
+        "basic_settings": "基本設定",
+        "croquis_deck": "クロッキーデッキ:",
+        "select_deck": "デッキを選択",
+        "image_settings": "画像設定",
+        "image_width": "画像ウィンドウ幅:",
+        "image_height": "画像ウィンドウ高さ:",
+        "random_order": "ランダム順序",
+        "grayscale": "グレースケール",
+        "flip_horizontal": "左右反転",
+        "timer_settings": "タイマー設定",
+        "timer_position": "タイマー位置:",
+        "timer_font_size": "タイマーフォントサイズ:",
+        "time_setting": "時間設定（秒）:",
+        "other_settings": "その他の設定",
+        "language": "言語:",
+        "dark_mode": "ダークモード",
+        "start_croquis": "クロッキー開始",
+        "edit_deck": "クロッキーデッキ編集",
+        "croquis_history": "クロッキー履歴",
+        "croquis_alarm": "クロッキーアラーム",
+        "large": "大",
+        "medium": "中",
+        "small": "小",
+        "bottom_right": "右下",
+        "bottom_center": "中央下",
+        "bottom_left": "左下",
+        "top_right": "右上",
+        "top_center": "中央上",
+        "top_left": "左上",
+        "file": "ファイル",
+        "new": "新規",
+        "open": "開く",
+        "save": "保存",
+        "save_as": "名前を付けて保存",
+        "import_images": "画像をインポート",
+        "deck_images": "デッキ画像",
+        "image_info": "画像情報",
+        "save_croquis": "クロッキーを保存",
+        "save_question": "このクロッキーを保存しますか？",
+        "yes": "はい",
+        "no": "いいえ",
+        "previous": "前へ",
+        "next": "次へ",
+        "pause": "一時停止",
+        "play": "再生",
+        "stop": "終了",
+        "korean": "한국어",
+        "english": "English",
+        "add_memo": "メモする",
+        "memo": "メモ",
+        "close": "閉じる",
     }
 }
 
@@ -692,20 +831,31 @@ class ImageViewerWindow(QWidget):
         control_layout = QHBoxLayout(control_widget)
         control_layout.setContentsMargins(10, 5, 10, 5)
         
+        # 리소스 로더 가져오기
+        resource_loader = get_resource_loader()
+        
         # 아이콘 버튼들
-        self.prev_btn = QPushButton("⏮")
+        self.prev_btn = QPushButton()
+        self.prev_btn.setIcon(resource_loader.get_icon("이전"))
+        self.prev_btn.setIconSize(QSize(24, 24))
         self.prev_btn.setToolTip(tr("previous", self.lang))
         self.prev_btn.clicked.connect(self.previous_image)
         
-        self.pause_btn = QPushButton("⏸")
+        self.pause_btn = QPushButton()
+        self.pause_btn.setIcon(resource_loader.get_icon("일시 정지"))
+        self.pause_btn.setIconSize(QSize(24, 24))
         self.pause_btn.setToolTip(tr("pause", self.lang))
         self.pause_btn.clicked.connect(self.toggle_pause)
         
-        self.next_btn = QPushButton("⏭")
+        self.next_btn = QPushButton()
+        self.next_btn.setIcon(resource_loader.get_icon("다음"))
+        self.next_btn.setIconSize(QSize(24, 24))
         self.next_btn.setToolTip(tr("next", self.lang))
         self.next_btn.clicked.connect(self.next_image_no_screenshot)
         
-        self.stop_btn = QPushButton("⏹")
+        self.stop_btn = QPushButton()
+        self.stop_btn.setIcon(resource_loader.get_icon("정지"))
+        self.stop_btn.setIconSize(QSize(24, 24))
         self.stop_btn.setToolTip(tr("stop", self.lang))
         self.stop_btn.clicked.connect(self.stop_croquis)
         
@@ -713,14 +863,15 @@ class ImageViewerWindow(QWidget):
             btn.setFixedSize(40, 40)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #555;
-                    color: white;
+                    background-color: rgba(85, 85, 85, 180);
                     border: none;
                     border-radius: 20px;
-                    font-size: 18px;
                 }
                 QPushButton:hover {
-                    background-color: #666;
+                    background-color: rgba(102, 102, 102, 200);
+                }
+                QPushButton:pressed {
+                    background-color: rgba(68, 68, 68, 220);
                 }
             """)
         
@@ -842,7 +993,7 @@ class ImageViewerWindow(QWidget):
                         self.start_screenshot_mode()
                 
     def start_screenshot_mode(self):
-        logger.info("스크린샷 모드 돌입")
+        logger.info(LOG_MESSAGES["screenshot_mode_enabled"])
         self.screenshot_overlay.start_capture()
         
     def on_screenshot_taken(self, screenshot: QPixmap):
@@ -895,12 +1046,12 @@ class ImageViewerWindow(QWidget):
             self.start_screenshot_mode()
             
     def on_screenshot_cancelled(self):
-        logger.info("스크린샷 모드 취소")
+        logger.info(LOG_MESSAGES["screenshot_mode_cancelled"])
         self.start_screenshot_mode()
         
     def save_croquis_pair(self, screenshot: QPixmap):
         """크로키 이미지 페어 암호화 저장"""
-        logger.info("크로키 페어 저장")
+        logger.info(LOG_MESSAGES["croquis_pair_saved"])
         # 크로키 시간 계산
         if self.settings.study_mode:
             croquis_time = self.elapsed_time
@@ -935,7 +1086,7 @@ class ImageViewerWindow(QWidget):
         self.croquis_saved.emit(self.current_pixmap, screenshot, croquis_time, image_filename, image_metadata)
         
     def previous_image(self):
-        logger.info("이전 크로키")
+        logger.info(LOG_MESSAGES["croquis_previous"])
         if self.settings.study_mode:
             # 학습 모드: 스크린샷 모드로 전환
             self.timer.stop()
@@ -946,7 +1097,7 @@ class ImageViewerWindow(QWidget):
             self.timer.start(1000)
             
     def next_image(self):
-        logger.info("다음 크로키")
+        logger.info(LOG_MESSAGES["croquis_next"])
         if self.current_index < len(self.images) - 1:
             self.current_index += 1
         else:
@@ -965,18 +1116,21 @@ class ImageViewerWindow(QWidget):
         
     def toggle_pause(self):
         self.paused = not self.paused
-        logger.info(f"크로키 {'정지' if self.paused else '재생'}")
+        logger.info(LOG_MESSAGES["croquis_paused" if self.paused else "croquis_playing"])
+        
+        # 아이콘 변경
+        resource_loader = get_resource_loader()
         if self.paused:
-            self.pause_btn.setText("▶")
+            self.pause_btn.setIcon(resource_loader.get_icon("재생"))
             self.pause_btn.setToolTip(tr("play", self.lang))
         else:
-            self.pause_btn.setText("⏸")
+            self.pause_btn.setIcon(resource_loader.get_icon("일시 정지"))
             self.pause_btn.setToolTip(tr("pause", self.lang))
             if self.remaining_time == 0:
                 self.next_image()
                 
     def stop_croquis(self):
-        logger.info("크로키 종료")
+        logger.info(LOG_MESSAGES["croquis_stopped"])
         if hasattr(self, 'timer') and self.timer:
             self.timer.stop()
             self.timer.deleteLater()
@@ -990,7 +1144,7 @@ class ImageViewerWindow(QWidget):
     
     def closeEvent(self, event):
         """창 닫기 이벤트 처리"""
-        logger.info("크로키 창 닫기")
+        logger.info(LOG_MESSAGES["croquis_window_closed"])
         if hasattr(self, 'timer') and self.timer:
             self.timer.stop()
             self.timer.deleteLater()
@@ -1156,7 +1310,7 @@ class DeckItemWidget(QWidget):
         new_difficulty = (current % 5) + 1
         
         self.img_data["difficulty"] = new_difficulty
-        logger.info(f"난이도 변경: {self.img_data['filename']} -> {new_difficulty}")
+        logger.info(LOG_MESSAGES["difficulty_changed"].format(self.img_data['filename'], new_difficulty))
         
         # 부모 윈도우의 deck_images 업데이트
         filename = self.img_data["filename"]
@@ -1745,18 +1899,18 @@ class DeckEditorWindow(QMainWindow):
                             if matches:
                                 # 가장 큰 이미지 URL 사용
                                 image_url = matches[0].replace('\\/', '/')
-                                logger.info(f"핀터레스트에서 이미지 URL 추출: {image_url}")
+                                logger.info(LOG_MESSAGES["pinterest_image_extracted"].format(image_url))
                                 # 추출한 URL로 재귀 호출
                                 self.download_image_from_url(image_url)
                                 return
                 except Exception as e:
-                    logger.error(f"핀터레스트 이미지 추출 실패: {e}")
+                    logger.error(LOG_MESSAGES["pinterest_extraction_failed"].format(e))
                     print(f"핀터레스트 이미지 추출 실패: {e}")
                     QMessageBox.warning(self, "경고", "핀터레스트 이미지를 추출할 수 없습니다. 이미지를 우클릭하여 '이미지 주소 복사'로 직접 이미지 URL을 드래그해주세요.")
                     return
             
             # 이미지 다운로드
-            logger.info(f"URL에서 이미지 다운로드: {url}")
+            logger.info(LOG_MESSAGES["downloading_image"].format(url))
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             req = urllib.request.Request(url, headers=headers)
             
@@ -1800,13 +1954,13 @@ class DeckEditorWindow(QMainWindow):
                 
                 # 덱에 추가
                 self.deck_images.append(image_data_dict)
-                logger.info(f"덱에 이미지 추가: {filename}")
+                logger.info(LOG_MESSAGES["image_added_to_deck"].format(filename))
                 self.save_temp_file()
                 self.update_image_list()
                 self.mark_modified()
                 
         except Exception as e:
-            logger.error(f"URL 이미지 다운로드 실패: {e}")
+            logger.error(LOG_MESSAGES["url_download_failed"].format(e))
             QMessageBox.warning(self, "오류", f"이미지를 다운로드하는 중 오류가 발생했습니다:\n{str(e)}")
                 
     def add_image_to_deck(self, path: str, difficulty: int = 1):
@@ -2028,7 +2182,7 @@ class DeckEditorWindow(QMainWindow):
             
     def new_deck(self):
         """새 덱 생성"""
-        logger.info("새 덱 만들기")
+        logger.info(LOG_MESSAGES["deck_created"])
         if self.is_modified:
             reply = QMessageBox.question(
                 self,
@@ -2062,7 +2216,7 @@ class DeckEditorWindow(QMainWindow):
         
     def open_deck(self):
         """덱 불러오기"""
-        logger.info("덱 불러오기")
+        logger.info(LOG_MESSAGES["deck_loaded"])
         if self.is_modified:
             reply = QMessageBox.question(
                 self,
@@ -2098,7 +2252,7 @@ class DeckEditorWindow(QMainWindow):
                 
     def save_deck(self):
         """덱 저장 - 임시 파일을 덱 파일로 복사"""
-        logger.info("덱 저장")
+        logger.info(LOG_MESSAGES["deck_saved"])
         if self.current_deck_path:
             self._save_to_path(self.current_deck_path)
         else:
@@ -2142,7 +2296,7 @@ class DeckEditorWindow(QMainWindow):
         if not selected_items:
             return
         
-        logger.info(f"이미지 삭제: {len(selected_items)}개")
+        logger.info(LOG_MESSAGES["images_deleted"].format(len(selected_items)))
         
         # 선택된 아이템들의 filename 수집
         filenames_to_delete = []
@@ -2188,28 +2342,38 @@ class DeckEditorWindow(QMainWindow):
     def show_image_context_menu(self, position):
         """이미지 리스트 컨텍스트 메뉴"""
         item = self.image_list.itemAt(position)
-        if not item:
-            return
         
         menu = QMenu(self)
         
-        # 이름 바꾸기
-        rename_action = menu.addAction("이름 바꾸기")
-        rename_action.triggered.connect(lambda: self.rename_image(item))
+        # 이미지 붙여넣기 (항상 표시)
+        paste_action = menu.addAction("이미지 붙여넣기")
+        paste_action.triggered.connect(self.paste_image_from_clipboard)
         
-        # 난이도 설정 메뉴
-        difficulty_menu = menu.addMenu("난이도 설정")
-        for i in range(1, 6):
-            action = difficulty_menu.addAction(f"★{i}")
-            action.triggered.connect(lambda checked, d=i, it=item: self.set_item_difficulty(it, d))
-        
-        # 태그 설정하기
-        tag_action = menu.addAction("태그 설정하기")
-        tag_action.triggered.connect(lambda: self.set_image_tags(item))
-        
-        # 속성
-        props_action = menu.addAction("속성")
-        props_action.triggered.connect(lambda: self.show_image_properties(item))
+        # 아이템이 선택된 경우에만 나머지 메뉴 표시
+        if item:
+            # 이미지 내보내기
+            export_action = menu.addAction("이미지 내보내기")
+            export_action.triggered.connect(lambda: self.export_image(item))
+            
+            menu.addSeparator()
+            
+            # 이름 바꾸기
+            rename_action = menu.addAction("이름 바꾸기")
+            rename_action.triggered.connect(lambda: self.rename_image(item))
+            
+            # 난이도 설정 메뉴
+            difficulty_menu = menu.addMenu("난이도 설정")
+            for i in range(1, 6):
+                action = difficulty_menu.addAction(f"★{i}")
+                action.triggered.connect(lambda checked, d=i, it=item: self.set_item_difficulty(it, d))
+            
+            # 태그 설정하기
+            tag_action = menu.addAction("태그 설정하기")
+            tag_action.triggered.connect(lambda: self.set_image_tags(item))
+            
+            # 속성
+            props_action = menu.addAction("속성")
+            props_action.triggered.connect(lambda: self.show_image_properties(item))
         
         menu.exec(self.image_list.mapToGlobal(position))
     
@@ -2223,7 +2387,7 @@ class DeckEditorWindow(QMainWindow):
         if text and (text.startswith('http://') or text.startswith('https://')):
             # 핀터레스트 핀 URL 처리
             if 'pinterest.com/pin/' in text:
-                logger.info(f"핀터레스트 핀 URL 복사 감지: {text}")
+                logger.info(LOG_MESSAGES["pinterest_url_detected"].format(text))
                 self.download_image_from_url(text)
             elif any(ext in text.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']):
                 # 일반 이미지 URL
@@ -2266,13 +2430,46 @@ class DeckEditorWindow(QMainWindow):
                 
                 # 덱에 추가
                 self.deck_images.append(image_data_dict)
-                logger.info(f"덱에 이미지 추가: {filename}")
+                logger.info(f"Image added to deck: {filename}")
                 self.save_temp_file()
                 self.update_image_list()
                 self.mark_modified()
             return
         
         QMessageBox.information(self, "안내", "클립보드에 이미지나 URL이 없습니다.")
+    
+    def export_image(self, item: QListWidgetItem):
+        """이미지를 원본 크기로 내보내기"""
+        img_data = item.data(Qt.ItemDataRole.UserRole)
+        if not img_data:
+            return
+        
+        filename = img_data.get("filename", "image.png")
+        
+        # 저장 경로 선택
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "이미지 내보내기",
+            filename,
+            "Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            # 이미지 데이터 가져오기
+            image_bytes = base64.b64decode(img_data["image_data"])
+            
+            # 파일로 저장
+            with open(file_path, 'wb') as f:
+                f.write(image_bytes)
+            
+            logger.info(f"Image exported: {filename} -> {file_path}")
+            QMessageBox.information(self, "성공", f"이미지가 저장되었습니다:\n{file_path}")
+        except Exception as e:
+            logger.error(f"Image export failed: {e}")
+            QMessageBox.warning(self, "오류", f"이미지 내보내기 중 오류가 발생했습니다:\n{str(e)}")
     
     def cycle_item_difficulty(self, item: QListWidgetItem):
         """아이템 난이도 순환 (1→2→3→4→5→1)"""
@@ -2291,7 +2488,7 @@ class DeckEditorWindow(QMainWindow):
             return
         
         img_data["difficulty"] = difficulty
-        logger.info(f"난이도 변경: {img_data['filename']} -> {difficulty}")
+        logger.info(f"Difficulty changed: {img_data['filename']} -> {difficulty}")
         
         # deck_images 업데이트
         filename = img_data["filename"]
@@ -2325,7 +2522,7 @@ class DeckEditorWindow(QMainWindow):
             if new_name and new_name != current_name:
                 # 이름 변경
                 img_data["filename"] = new_name
-                logger.info(f"파일명 변경: {current_name} -> {new_name}")
+                logger.info(f"Filename changed: {current_name} -> {new_name}")
                 
                 # deck_images 업데이트
                 for i, deck_img in enumerate(self.deck_images):
@@ -2587,6 +2784,24 @@ class DeckEditorWindow(QMainWindow):
                         thumb_x = (100 - scaled_thumb.width()) // 2
                         thumb_y = (120 - scaled_thumb.height()) // 2
                         thumb_painter.drawPixmap(thumb_x, thumb_y, scaled_thumb)
+                        
+                        # 시간 오버레이 추가 (우측 하단)
+                        croquis_time = data.get("croquis_time", 0)
+                        time_str = f"{croquis_time // 60}:{croquis_time % 60:02d}"
+                        
+                        # 반투명 검은 배경
+                        time_width = 38
+                        time_height = 18
+                        bg_rect = QRect(100 - time_width - 5, 120 - time_height - 5, time_width, time_height)
+                        thumb_painter.setBrush(QBrush(QColor(0, 0, 0, 150)))
+                        thumb_painter.setPen(Qt.PenStyle.NoPen)
+                        thumb_painter.drawRoundedRect(bg_rect, 8, 8)
+                        
+                        # 시간 텍스트 (하얀 글씨)
+                        thumb_painter.setPen(QColor(255, 255, 255))
+                        thumb_painter.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+                        thumb_painter.drawText(bg_rect, Qt.AlignmentFlag.AlignCenter, time_str)
+                        
                         thumb_painter.end()
                         
                         # 리스트 아이템 생성
@@ -2597,16 +2812,13 @@ class DeckEditorWindow(QMainWindow):
                         # 타임스탬프와 시간 정보
                         timestamp = data.get("timestamp", "")
                         croquis_time = data.get("croquis_time", 0)
-                        time_str = f"{croquis_time // 60}:{croquis_time % 60:02d}" if croquis_time > 0 else "N/A"
                         
-                        # 날짜 포맷팅 (연도-월-일 시:분 형식)
-                        if len(timestamp) >= 13:
+                        # 날짜 포맷팅 (연도-월-일)
+                        if len(timestamp) >= 8:
                             year = timestamp[:4]
                             month = timestamp[4:6]
                             day = timestamp[6:8]
-                            hour = timestamp[9:11]
-                            minute = timestamp[11:13]
-                            date_str = f"{year}-{month}-{day}\n{hour}:{minute}"
+                            date_str = f"{year}-{month}-{day}"
                         else:
                             date_str = timestamp
                         
@@ -2652,7 +2864,7 @@ class DeckEditorWindow(QMainWindow):
         if not data:
             return
         
-        logger.info("크로키 크게 보기 선택")
+        logger.info(LOG_MESSAGES["croquis_large_view_selected"])
         croquis_file_path = data.get("file_path")
         dialog = CroquisLargeViewDialog(data, self.lang, croquis_file_path, self)
         dialog.exec()
@@ -2689,7 +2901,7 @@ class DeckEditorWindow(QMainWindow):
     
     def closeEvent(self, event):
         """창 닫기 이벤트 - 수정사항이 있으면 저장 확인"""
-        logger.info("덱 편집창 닫기")
+        logger.info(LOG_MESSAGES["deck_editor_closed"])
         if self.is_modified:
             reply = QMessageBox.question(
                 self,
@@ -2984,17 +3196,33 @@ class HistoryWindow(QDialog):
             
             painter = QPainter(combined_pixmap)
             
-            # 크로키 이미지 (왼쪽)
+            # 원본 이미지 (왼쪽)
+            original_scaled = item["original"].scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            original_x = (150 - original_scaled.width()) // 2
+            original_y = (150 - original_scaled.height()) // 2
+            painter.drawPixmap(original_x, original_y, original_scaled)
+            
+            # 크로키 이미지 (오른쪽)
             screenshot_scaled = item["screenshot"].scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            screenshot_x = (150 - screenshot_scaled.width()) // 2
+            screenshot_x = 150 + (150 - screenshot_scaled.width()) // 2
             screenshot_y = (150 - screenshot_scaled.height()) // 2
             painter.drawPixmap(screenshot_x, screenshot_y, screenshot_scaled)
             
-            # 원본 이미지 (오른쪽)
-            original_scaled = item["original"].scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            original_x = 150 + (150 - original_scaled.width()) // 2
-            original_y = (150 - original_scaled.height()) // 2
-            painter.drawPixmap(original_x, original_y, original_scaled)
+            # 시간 오버레이 추가 (크로키 이미지 우측 하단)
+            time_str = f"{item['time'] // 60}:{item['time'] % 60:02d}" if item['time'] > 0 else "N/A"
+            
+            # 반투명 검은 배경
+            time_width = 48
+            time_height = 22
+            bg_rect = QRect(300 - time_width - 8, 150 - time_height - 8, time_width, time_height)
+            painter.setBrush(QBrush(QColor(0, 0, 0, 150)))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRoundedRect(bg_rect, 8, 8)
+            
+            # 시간 텍스트 (하얀 글씨)
+            painter.setPen(QColor(255, 255, 255))
+            painter.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+            painter.drawText(bg_rect, Qt.AlignmentFlag.AlignCenter, time_str)
             
             painter.end()
             
@@ -3002,9 +3230,8 @@ class HistoryWindow(QDialog):
             list_item = QListWidgetItem()
             list_item.setIcon(QIcon(combined_pixmap))
             
-            # 정보 텍스트
-            time_str = f"{item['time'] // 60}:{item['time'] % 60:02d}" if item['time'] > 0 else "N/A"
-            text = f"{item['date']} {item['timestamp'][9:11]}:{item['timestamp'][11:13]} | {time_str}"
+            # 정보 텍스트 (시간 제거)
+            text = f"{item['date']} {item['timestamp'][9:11]}:{item['timestamp'][11:13]}"
             list_item.setText(text)
             
             # 데이터 저장 (file_path 포함)
@@ -3079,7 +3306,7 @@ class CroquisLargeViewDialog(QDialog):
         self.lang = lang
         self.croquis_file_path = croquis_file_path
         self.setup_ui()
-        logger.info("크로키 큰 보기 열기")
+        logger.info(LOG_MESSAGES["croquis_large_view_opened"])
     
     def setup_ui(self):
         self.setWindowTitle("크로키 상세 보기")
@@ -3103,7 +3330,7 @@ class CroquisLargeViewDialog(QDialog):
         images_layout = QHBoxLayout()
         images_layout.setSpacing(15)
         
-        # 원본 이미지
+        # 원본 이미지 (왼쪽)
         left_container = QVBoxLayout()
         left_container.setSpacing(5)
         
@@ -3125,7 +3352,7 @@ class CroquisLargeViewDialog(QDialog):
         
         images_layout.addLayout(left_container)
         
-        # 크로키 이미지
+        # 크로키 이미지 (오른쪽)
         right_container = QVBoxLayout()
         right_container.setSpacing(5)
         
@@ -3172,7 +3399,7 @@ class CroquisMemoDialog(QDialog):
         self.lang = lang
         self.setup_ui()
         self.load_memo()
-        logger.info(f"크로키 메모 다이얼로그 열기: {os.path.basename(croquis_file_path)}")
+        logger.info(LOG_MESSAGES["memo_dialog_opened"].format(os.path.basename(croquis_file_path)))
     
     def setup_ui(self):
         self.setWindowTitle(tr("memo", self.lang))
@@ -3207,7 +3434,7 @@ class CroquisMemoDialog(QDialog):
                 memo_text = data.get("memo", "")
                 self.memo_edit.setPlainText(memo_text)
             except Exception as e:
-                logger.error(f"메모 불러오기 실패: {e}")
+                logger.error(LOG_MESSAGES["memo_loading_failed"].format(e))
     
     def save_and_close(self):
         """메모 저장 후 닫기"""
@@ -3231,10 +3458,10 @@ class CroquisMemoDialog(QDialog):
             with open(self.croquis_file_path, "wb") as f:
                 f.write(encrypted_new)
             
-            logger.info(f"크로키 메모 저장: {os.path.basename(self.croquis_file_path)}")
+            logger.info(LOG_MESSAGES["memo_saved"].format(os.path.basename(self.croquis_file_path)))
             self.accept()
         except Exception as e:
-            logger.error(f"메모 저장 실패: {e}")
+            logger.error(LOG_MESSAGES["memo_saving_failed"].format(e))
             QMessageBox.warning(self, "오류", f"메모 저장 중 오류가 발생했습니다:\n{str(e)}")
     
     @staticmethod
@@ -3777,7 +4004,7 @@ class TagFilterDialog(QDialog):
             
         except Exception as e:
             self.loading_label.setText(f"태그 로드 실패: {str(e)}")
-            logger.error(f"태그 로드 실패: {e}")
+            logger.error(LOG_MESSAGES["tag_loading_failed"].format(e))
     
     def update_tags_ui(self):
         """태그 UI 업데이트"""
@@ -4239,7 +4466,7 @@ class MainWindow(QMainWindow):
             "크로키 덱 파일 (*.crdk)"
         )
         if file_path:
-            logger.info(f"덱 선택: {os.path.basename(file_path)}")
+            logger.info(LOG_MESSAGES["deck_selected"].format(os.path.basename(file_path)))
             self.load_deck_file(file_path)
             
     def load_deck_file(self, file_path: str):
@@ -4315,27 +4542,27 @@ class MainWindow(QMainWindow):
         
     def on_width_changed(self, value: int):
         self.settings.image_width = value
-        logger.info(f"이미지 너비 변경: {value}")
+        logger.info(LOG_MESSAGES["image_width_changed"].format(value))
         self.save_settings()
         
     def on_height_changed(self, value: int):
         self.settings.image_height = value
-        logger.info(f"이미지 높이 변경: {value}")
+        logger.info(LOG_MESSAGES["image_height_changed"].format(value))
         self.save_settings()
         
     def on_grayscale_changed(self, state: int):
         self.settings.grayscale = state == Qt.CheckState.Checked.value
-        logger.info(f"흑백 모드: {self.settings.grayscale}")
+        logger.info(LOG_MESSAGES["grayscale_mode"].format(self.settings.grayscale))
         self.save_settings()
         
     def on_flip_changed(self, state: int):
         self.settings.flip_horizontal = state == Qt.CheckState.Checked.value
-        logger.info(f"좌우 반전: {self.settings.flip_horizontal}")
+        logger.info(LOG_MESSAGES["flip_horizontal"].format(self.settings.flip_horizontal))
         self.save_settings()
         
     def on_timer_pos_changed(self, text: str):
         self.settings.timer_position = text
-        logger.info(f"타이머 위치: {text}")
+        logger.info(LOG_MESSAGES["timer_position_changed"].format(text))
         self.save_settings()
         
     def on_timer_font_changed(self, text: str):
@@ -4346,24 +4573,27 @@ class MainWindow(QMainWindow):
             "크게": "large", "보통": "medium", "작게": "small",
             "Large": "large", "Medium": "medium", "Small": "small"
         }
+        old_size = self.settings.timer_font_size
         self.settings.timer_font_size = font_map.get(text, "large")
-        logger.info(f"타이머 폰트 크기: {self.settings.timer_font_size}")
+        # 실제로 값이 변경되었을 때만 로깅
+        if old_size != self.settings.timer_font_size:
+            logger.info(LOG_MESSAGES["timer_font_size_changed"].format(self.settings.timer_font_size))
         self.save_settings()
         
     def on_time_changed(self, value: int):
         self.settings.time_seconds = value
-        logger.info(f"타이머 시간 변경: {value}초")
+        logger.info(LOG_MESSAGES["timer_time_changed"].format(value))
         self.save_settings()
         
     def on_language_changed(self, text: str):
         self.settings.language = "ko" if text == "한국어" else "en"
-        logger.info(f"언어 변경: {self.settings.language}")
+        logger.info(LOG_MESSAGES["language_changed"].format(self.settings.language))
         self.apply_language()
         self.save_settings()
         
     def on_dark_mode_changed(self, state: int):
         self.settings.dark_mode = state == Qt.CheckState.Checked.value
-        logger.info(f"다크 모드: {self.settings.dark_mode}")
+        logger.info(LOG_MESSAGES["dark_mode"].format(self.settings.dark_mode))
         self.apply_dark_mode()
         self.save_settings()
         
@@ -4385,7 +4615,7 @@ class MainWindow(QMainWindow):
         dialog = TagFilterDialog(deck_path, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.enabled_tags = dialog.get_enabled_tags()
-            logger.info(f"활성화된 태그: {self.enabled_tags}")
+            logger.info(LOG_MESSAGES["tags_enabled"].format(self.enabled_tags))
             
             # 이미지 파일 목록 다시 로드 (태그 필터링 적용)
             self.load_images_from_deck(deck_path)
@@ -4395,7 +4625,7 @@ class MainWindow(QMainWindow):
         if not self.image_files:
             return
         
-        logger.info(f"크로키 시작 - 이미지 {len(self.image_files)}개")
+        logger.info(LOG_MESSAGES["croquis_started"].format(len(self.image_files)))
         self.viewer = ImageViewerWindow(
             self.settings,
             self.image_files.copy(),
@@ -4478,23 +4708,23 @@ class MainWindow(QMainWindow):
         
     def open_deck_editor(self):
         """덱 편집기 열기"""
-        logger.info("덱 편집창 열기")
+        logger.info(LOG_MESSAGES["deck_editor_opened"])
         self.deck_editor = DeckEditorWindow(self.settings.language, self.settings.dark_mode)
         self.deck_editor.show()
         
     def open_history(self):
         """히스토리 열기"""
-        logger.info("크로키 히스토리 열기")
+        logger.info(LOG_MESSAGES["history_opened"])
         dialog = HistoryWindow(self.settings.language, self, self.settings.dark_mode)
         dialog.exec()
-        logger.info("크로키 히스토리 닫기")
+        logger.info(LOG_MESSAGES["history_closed"])
         
     def open_alarm(self):
         """알람 설정 열기"""
-        logger.info("알람 설정창 열기")
+        logger.info(LOG_MESSAGES["alarm_settings_opened"])
         dialog = AlarmWindow(self.settings.language, self)
         dialog.exec()
-        logger.info("알람 설정창 닫기")
+        logger.info(LOG_MESSAGES["alarm_settings_closed"])
         
     def load_settings(self):
         """설정 로드"""
@@ -4525,7 +4755,7 @@ class MainWindow(QMainWindow):
             f.write(encrypted)
             
     def closeEvent(self, event):
-        logger.info("프로그램 종료")
+        logger.info(LOG_MESSAGES["program_closed"])
         self.save_settings()
         super().closeEvent(event)
 
