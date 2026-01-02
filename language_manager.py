@@ -4,14 +4,24 @@ Loads translations from CSV file and provides them as a dictionary.
 Priority: translations.csv file -> Qt resources -> minimal fallback
 """
 
+import sys
 import csv
 from pathlib import Path
 from io import StringIO
 
+def get_base_path():
+    """Get base path for resources. Handles PyInstaller bundled executables."""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        return Path(sys._MEIPASS)
+    else:
+        # Running as script
+        return Path(__file__).parent
+
 def load_translations_from_csv(csv_path: str = None) -> dict:
     """Load translations from CSV file into a nested dictionary."""
     if csv_path is None:
-        csv_path = Path(__file__).parent / "translations.csv"
+        csv_path = get_base_path() / "translations.csv"
     else:
         csv_path = Path(csv_path)
     

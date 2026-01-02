@@ -1,4 +1,4 @@
-"""
+﻿"""
 Croquis Practice App
 PyQt6-based croquis practice application
 """
@@ -8,8 +8,6 @@ import os
 import json
 import random
 import hashlib
-import tempfile
-import time
 import logging
 from datetime import datetime, date, timedelta
 from pathlib import Path
@@ -20,6 +18,17 @@ import base64
 from log_manager import LOG_MESSAGES
 from language_manager import TRANSLATIONS
 from qt_resource_loader import QtResourceLoader
+
+# ============== Path helpers ==============
+def get_data_path():
+    """Get base path for data files (dat, logs, croquis_pairs etc.).
+    Always uses the directory where the executable/script is located."""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable - use executable's directory
+        return Path(sys.executable).parent
+    else:
+        # Running as script - use script's directory
+        return Path(__file__).parent
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -40,6 +49,187 @@ from PyQt6.QtGui import (
     QMouseEvent, QPaintEvent, QKeyEvent, QAction, QDrag
 )
 
+# ============== Alarm Check Functions ==============
+def show_toast_notification(title: str, message: str, icon_path: str = None):
+    """Windows 토스트 알림 표시"""
+    dat_dir = get_data_path() / "dat"
+    log_file = dat_dir / "toast.log"
+    
+    def toast_log(msg):
+        try:
+            with open(log_file, "a", encoding="utf-8") as f:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{timestamp}] {msg}\n")
+        except:
+            pass
+    
+    toast_log(f"Toast requested: {title} - {message}")
+    
+    # 아이콘 경로 설정
+    if icon_path is None:
+        icon_path = str(get_data_path() / "icon.ico")
+    
+    # 1순위: win11toast (Windows 10/11 네이티브 알림)
+    try:
+        from win11toast import toast_async
+        import asyncio
+        
+        async def show_toast():
+            # 타임아웃 5초 설정
+            try:
+                await asyncio.wait_for(
+                    toast_async(
+                        title,
+                        message,
+                        icon=icon_path if os.path.exists(icon_path) else None,
+                        app_id="Croquis Practice"
+                    ),
+                    timeout=5.0
+                )
+            except asyncio.TimeoutError:
+                toast_log("win11toast: timeout after 5s")
+        
+        asyncio.run(show_toast())
+        toast_log("win11toast: SUCCESS")
+        return
+    except Exception as e:
+        toast_log(f"win11toast failed: {e}")
+    
+    # 2순위: plyer (크로스 플랫폼)
+    try:
+        from plyer import notification
+        notification.notify(
+            title=title,
+            message=message,
+            app_name="Croquis Practice",
+            app_icon=icon_path if icon_path and os.path.exists(icon_path) else None,
+            timeout=10
+        )
+        toast_log("plyer: SUCCESS")
+        return
+    except Exception as e:
+        toast_log(f"plyer failed: {e}")
+    
+    # 최후의 수단: 콘솔 출력 + 파일 기록
+    fallback_msg = f"[ALARM] {title}: {message}"
+    print(fallback_msg)
+    toast_log(f"Fallback: {fallback_msg}")
+
+def check_and_trigger_alarms():
+    """알람 확인 및 실행 (한 번만 울리도록 중복 방지)"""
+    dat_dir = get_data_path() / "dat"
+    alarms_file = dat_dir / "alarms.dat"
+    triggered_file = dat_dir / "triggered_alarms.json"
+    
+    # 로그 파일 생성 (디버깅용)
+    log_file = dat_dir / "alarm_check.log"
+    
+    def log_message(msg):
+        try:
+            with open(log_file, "a", encoding="utf-8") as f:
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"[{timestamp}] {msg}\n")
+        except:
+            pass
+    
+    log_message("=== Alarm check started ===")
+    
+    if not alarms_file.exists():
+        log_message(f"Alarms file not found: {alarms_file}")
+        return
+    
+    try:
+        with open(alarms_file, "rb") as f:
+            encrypted = f.read()
+        data = decrypt_data(encrypted)
+        alarms = data.get("alarms", [])
+        log_message(f"Loaded {len(alarms)} alarms")
+        
+        # 이미 울린 알람 기록 로드
+        triggered_alarms = {}
+        if triggered_file.exists():
+            try:
+                with open(triggered_file, "r", encoding="utf-8") as f:
+                    triggered_alarms = json.load(f)
+                log_message(f"Loaded {len(triggered_alarms)} triggered records")
+            except:
+                triggered_alarms = {}
+        
+        # 현재 시간
+        now = datetime.now()
+        current_time = now.strftime("%H:%M")
+        current_date = now.strftime("%Y-%m-%d")
+        current_datetime = f"{current_date} {current_time}"
+        current_weekday = now.weekday()
+        icon_path = str(get_data_path() / "icon.ico")
+        
+        log_message(f"Current time: {current_datetime}, weekday: {current_weekday}")
+        
+        # 날짜가 바뀌면 기록 초기화
+        for key in list(triggered_alarms.keys()):
+            if not key.startswith(current_date):
+                del triggered_alarms[key]
+        
+        # 알람 확인
+        triggered_now = False
+        for i, alarm in enumerate(alarms):
+            if not alarm.get("enabled", False):
+                log_message(f"Alarm {i}: disabled")
+                continue
+            
+            alarm_time = alarm.get("time", "")
+            alarm_type = alarm.get("type", "")
+            log_message(f"Alarm {i}: time={alarm_time}, type={alarm_type}")
+            
+            # 시간 매칭 확인
+            if alarm_time != current_time:
+                log_message(f"Alarm {i}: time not matched ({alarm_time} != {current_time})")
+                continue
+            
+            # 고유 키 생성 (날짜 + 시간 + 알람 인덱스)
+            alarm_key = f"{current_date}_{current_time}_{i}"
+            
+            # 이미 울린 알람은 건너뛰기
+            if alarm_key in triggered_alarms:
+                log_message(f"Alarm {i}: already triggered ({alarm_key})")
+                continue
+            
+            # 타입별 확인
+            should_trigger = False
+            
+            if alarm_type == "weekday":
+                weekdays = alarm.get("weekdays", [])
+                if current_weekday in weekdays:
+                    should_trigger = True
+            elif alarm_type == "date":
+                alarm_date = alarm.get("date", "")
+                if alarm_date == current_date:
+                    should_trigger = True
+            
+            if should_trigger:
+                title = alarm.get("title", "크로키 알람")
+                message = alarm.get("message", "크로키 연습 시간입니다!")
+                log_message(f"Alarm {i}: TRIGGERED! Title: {title}, Message: {message}")
+                show_toast_notification(title, message, icon_path)
+                
+                # 울린 알람 기록
+                triggered_alarms[alarm_key] = current_datetime
+                triggered_now = True
+            else:
+                log_message(f"Alarm {i}: conditions not met")
+        
+        # 기록 저장
+        if triggered_now:
+            with open(triggered_file, "w", encoding="utf-8") as f:
+                json.dump(triggered_alarms, f, ensure_ascii=False, indent=2)
+            log_message("Triggered alarms saved")
+        else:
+            log_message("No alarms triggered")
+                
+    except Exception as e:
+        log_message(f"ERROR: {e}")
+        print(f"Error checking alarms: {e}")
+
 # ============== Size constants ==============
 # Deck editor list item sizes
 DECK_ICON_WIDTH = 100
@@ -58,7 +248,15 @@ HISTORY_SPACING = 5
 # ============== Logging setup ==============
 def setup_logging():
     """Initialize logging system"""
-    log_dir = Path(__file__).parent / "logs"
+    # Use execution path for logs directory (not script path)
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable - use executable's directory
+        base_dir = Path(sys.executable).parent
+    else:
+        # Running as script - use script's directory
+        base_dir = Path(__file__).parent
+    
+    log_dir = base_dir / "logs"
     log_dir.mkdir(exist_ok=True)
     
     log_file = log_dir / f"croquis_{datetime.now().strftime('%Y%m%d')}.log"
@@ -83,6 +281,29 @@ logger.info(LOG_MESSAGES["program_started"])
 def tr(key: str, lang: str = "ko") -> str:
     """Translation helper"""
     return TRANSLATIONS.get(lang, TRANSLATIONS["ko"]).get(key, key)
+
+# ============== Icon setup ==============
+def get_app_icon() -> QIcon:
+    """Load application icon from file (optimized for PyInstaller)"""
+    icon_path = None
+    
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        # PyInstaller extracts files to sys._MEIPASS (temp directory)
+        bundled_icon = Path(sys._MEIPASS) / "icon.ico"
+        if bundled_icon.exists():
+            icon_path = bundled_icon
+        else:
+            # Fallback: check executable directory
+            icon_path = get_data_path() / "icon.ico"
+    else:
+        # Running as script
+        icon_path = Path(__file__).parent / "icon.ico"
+    
+    if icon_path and icon_path.exists():
+        return QIcon(str(icon_path))
+    
+    return QIcon()
 
 # ============== Encryption utilities ==============
 def encrypt_data(data: dict) -> bytes:
@@ -122,6 +343,8 @@ class CroquisSettings:
     language: str = "ko"
     dark_mode: bool = False
     study_mode: bool = False
+    today_croquis_count_position: str = "top_right"
+    today_croquis_count_font_size: str = "medium"
 
 
 @dataclass
@@ -152,7 +375,7 @@ class HeatmapWidget(QWidget):
         
     def load_data(self):
         """Load history data"""
-        dat_dir = Path(__file__).parent / "dat"
+        dat_dir = get_data_path() / "dat"
         dat_dir.mkdir(exist_ok=True)
         data_path = dat_dir / "croquis_history.dat"
         if data_path.exists():
@@ -171,7 +394,7 @@ class HeatmapWidget(QWidget):
     
     def save_data(self):
         """Save history data"""
-        dat_dir = Path(__file__).parent / "dat"
+        dat_dir = get_data_path() / "dat"
         dat_dir.mkdir(exist_ok=True)
         data_path = dat_dir / "croquis_history.dat"
         encrypted = encrypt_data(self.data)
@@ -367,6 +590,11 @@ class ScreenshotOverlay(QWidget):
         
     def start_capture(self):
         """Begin screenshot capture"""
+        # Reset selection area
+        self.start_pos = None
+        self.end_pos = None
+        self.selecting = False
+        
         screen = QGuiApplication.primaryScreen()
         self.screenshot = screen.grabWindow(0)
         self.setGeometry(screen.geometry())
@@ -456,6 +684,7 @@ class ImageViewerWindow(QWidget):
     
     def __init__(self, settings: CroquisSettings, images: List[Any], lang: str = "ko", parent=None):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())  # Set window icon
         self.settings = settings
         self.images = images  # List of str (file path) or dict (image data)
         self.lang = lang
@@ -464,6 +693,9 @@ class ImageViewerWindow(QWidget):
         self.remaining_time = settings.time_seconds if not settings.study_mode else 0
         self.elapsed_time = 0  # Elapsed time for study mode
         self.random_seed = None
+        
+        # Set window icon
+        self.setWindowIcon(get_app_icon())
         
         # Always shuffle using difficulty-weighted random order
         self.random_seed = random.randint(0, 1000000)
@@ -564,6 +796,20 @@ class ImageViewerWindow(QWidget):
         self.update_timer_position()
         self.update_timer_font()
         
+        # Today's croquis count label over the image
+        self.today_count_label = QLabel(self.image_container)
+        self.today_count_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: rgba(0, 0, 0, 150);
+                padding: 5px 10px;
+                border-radius: 5px;
+            }
+        """)
+        self.update_today_count_display()
+        self.update_today_count_font()
+        self.update_today_count_position()
+        
         layout.addWidget(self.image_container, 1)
         
         # Control button area
@@ -577,25 +823,25 @@ class ImageViewerWindow(QWidget):
         
         # Icon buttons
         self.prev_btn = QPushButton()
-        self.prev_btn.setIcon(resource_loader.get_icon(":/buttons/이전.png"))
+        self.prev_btn.setIcon(resource_loader.get_icon("/buttons/이전.png"))
         self.prev_btn.setIconSize(QSize(24, 24))
         self.prev_btn.setToolTip(tr("previous", self.lang))
         self.prev_btn.clicked.connect(self.previous_image)
         
         self.pause_btn = QPushButton()
-        self.pause_btn.setIcon(resource_loader.get_icon(":/buttons/일시 정지.png"))
+        self.pause_btn.setIcon(resource_loader.get_icon("/buttons/일시 정지.png"))
         self.pause_btn.setIconSize(QSize(24, 24))
         self.pause_btn.setToolTip(tr("pause", self.lang))
         self.pause_btn.clicked.connect(self.toggle_pause)
         
         self.next_btn = QPushButton()
-        self.next_btn.setIcon(resource_loader.get_icon(":/buttons/다음.png"))
+        self.next_btn.setIcon(resource_loader.get_icon("/buttons/다음.png"))
         self.next_btn.setIconSize(QSize(24, 24))
         self.next_btn.setToolTip(tr("next", self.lang))
         self.next_btn.clicked.connect(self.next_image_no_screenshot)
         
         self.stop_btn = QPushButton()
-        self.stop_btn.setIcon(resource_loader.get_icon(":/buttons/정지.png"))
+        self.stop_btn.setIcon(resource_loader.get_icon("/buttons/정지.png"))
         self.stop_btn.setIconSize(QSize(24, 24))
         self.stop_btn.setToolTip(tr("stop", self.lang))
         self.stop_btn.clicked.connect(self.stop_croquis)
@@ -662,6 +908,71 @@ class ImageViewerWindow(QWidget):
         size = sizes.get(self.settings.timer_font_size, 24)
         font = QFont("Arial", size, QFont.Weight.Bold)
         self.timer_label.setFont(font)
+    
+    def load_today_croquis_count(self):
+        """Load today's croquis count from history data"""
+        dat_dir = get_data_path() / "dat"
+        data_path = dat_dir / "croquis_history.dat"
+        if data_path.exists():
+            try:
+                with open(data_path, "rb") as f:
+                    encrypted = f.read()
+                decrypted = decrypt_data(encrypted)
+                today = date.today().isoformat()
+                return decrypted.get(today, 0)
+            except Exception:
+                return 0
+        return 0
+    
+    def update_today_count_display(self):
+        """Update today's croquis count display"""
+        count = self.load_today_croquis_count()
+        self.today_count_label.setText(f"{count} {tr('croquis_times', self.lang)}")
+        self.today_count_label.adjustSize()
+    
+    def update_today_count_font(self):
+        """Update today's croquis count font size"""
+        sizes = {"large": 20, "medium": 15, "small": 10}
+        size = sizes.get(self.settings.today_croquis_count_font_size, 15)
+        font = QFont("Arial", size, QFont.Weight.Bold)
+        self.today_count_label.setFont(font)
+    
+    def update_today_count_position(self):
+        """Update today's croquis count position, avoiding overlap with timer"""
+        pos = self.settings.today_croquis_count_position
+        timer_pos = self.settings.timer_position
+        margin = 10
+        
+        self.today_count_label.adjustSize()
+        w = self.today_count_label.width()
+        h = self.today_count_label.height()
+        cw = self.image_container.width()
+        ch = self.image_container.height()
+        
+        positions = {
+            "bottom_right": (cw - w - margin, ch - h - margin),
+            "bottom_center": ((cw - w) // 2, ch - h - margin),
+            "bottom_left": (margin, ch - h - margin),
+            "top_right": (cw - w - margin, margin),
+            "top_center": ((cw - w) // 2, margin),
+            "top_left": (margin, margin),
+        }
+        
+        x, y = positions.get(pos, positions["top_right"])
+        
+        # Check for overlap with timer
+        if pos == timer_pos:
+            # If positions match, adjust based on vertical position
+            if "top" in pos:
+                # Move today count below timer
+                timer_h = self.timer_label.height()
+                y = margin + timer_h + 5
+            else:  # "bottom" in pos
+                # Move today count above timer
+                timer_h = self.timer_label.height()
+                y = ch - h - margin - timer_h - 5
+        
+        self.today_count_label.move(x, y)
         
     def load_current_image(self):
         if 0 <= self.current_index < len(self.images):
@@ -689,7 +1000,9 @@ class ImageViewerWindow(QWidget):
                 pixmap = QPixmap.fromImage(image)
             
             if self.settings.flip_horizontal:
-                pixmap = pixmap.transformed(pixmap.transform().scale(-1, 1))
+                from PyQt6.QtGui import QTransform
+                transform = QTransform().scale(-1, 1)
+                pixmap = pixmap.transformed(transform)
             
             scaled = pixmap.scaled(
                 self.settings.image_width, 
@@ -731,7 +1044,8 @@ class ImageViewerWindow(QWidget):
                     
                     if self.remaining_time == 0:
                         self.timer.stop()
-                        self.start_screenshot_mode()
+                        # 화면이 00:00으로 업데이트될 시간을 준 후 스크린샷 캡처
+                        QTimer.singleShot(150, self.start_screenshot_mode)
                 
     def start_screenshot_mode(self):
         logger.info(LOG_MESSAGES["screenshot_mode_enabled"])
@@ -845,6 +1159,7 @@ class ImageViewerWindow(QWidget):
             # Loop back to the first image
             self.current_index = 0
         self.load_current_image()
+        self.update_today_count_display()  # Update count display
         self.timer.start(1000)
             
     def next_image_no_screenshot(self):
@@ -862,10 +1177,10 @@ class ImageViewerWindow(QWidget):
         # Swap play/pause icon
         resource_loader = QtResourceLoader()
         if self.paused:
-            self.pause_btn.setIcon(resource_loader.get_icon(":/buttons/재생.png"))
+            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/재생.png"))
             self.pause_btn.setToolTip(tr("play", self.lang))
         else:
-            self.pause_btn.setIcon(resource_loader.get_icon(":/buttons/일시 정지.png"))
+            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/일시 정지.png"))
             self.pause_btn.setToolTip(tr("pause", self.lang))
             if self.remaining_time == 0:
                 self.next_image()
@@ -912,6 +1227,8 @@ class ImageViewerWindow(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.update_timer_position()
+        self.update_today_count_position()
+
 
 
 # ============== Difficulty widget ==============
@@ -1076,6 +1393,7 @@ class ImageRenameDialog(QDialog):
     
     def __init__(self, current_name: str, lang: str, parent=None):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())
         self.lang = lang
         self.setWindowTitle(tr("rename_title", self.lang))
         self.resize(380, 160)
@@ -1137,6 +1455,7 @@ class ImageTagDialog(QDialog):
     
     def __init__(self, current_tags: List[str], lang: str, parent=None):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())
         self.lang = lang
         self.setWindowTitle(tr("tag_title", self.lang))
         self.resize(420, 170)
@@ -1201,6 +1520,7 @@ class ImagePropertiesDialog(QDialog):
     
     def __init__(self, img_data: dict, lang: str, parent=None):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())
         self.lang = lang
         self.setWindowTitle(tr("properties_title", self.lang))
         self.resize(450, 320)
@@ -1303,6 +1623,9 @@ class DeckEditorWindow(QMainWindow):
         self.lazy_load_timer = QTimer(self)
         self.lazy_load_timer.timeout.connect(self._load_next_batch)
         
+        # Recent files (max 5)
+        self.recent_files = self.load_recent_files()
+        
         self.setup_temp_file()
         self.setup_ui()
         self.apply_dark_mode()
@@ -1310,7 +1633,7 @@ class DeckEditorWindow(QMainWindow):
     
     def setup_temp_file(self):
         """Initialize temporary file"""
-        temp_dir = Path(__file__).parent / "temp"
+        temp_dir = get_data_path() / "temp"
         temp_dir.mkdir(exist_ok=True)
         
         # Generate unique temp filename
@@ -1375,6 +1698,9 @@ class DeckEditorWindow(QMainWindow):
         self.setWindowTitle(tr("edit_deck", self.lang))
         self.resize(1000, 600)
         
+        # Set window icon
+        self.setWindowIcon(get_app_icon())
+        
         # Menu bar
         menubar = self.menuBar()
         file_menu = menubar.addMenu(tr("file", self.lang))
@@ -1386,6 +1712,10 @@ class DeckEditorWindow(QMainWindow):
         open_action = QAction(tr("open", self.lang), self)
         open_action.triggered.connect(self.open_deck)
         file_menu.addAction(open_action)
+        
+        # Open Recent submenu
+        self.recent_menu = file_menu.addMenu(tr("open_recent", self.lang))
+        self.update_recent_menu()
         
         save_action = QAction(tr("save", self.lang), self)
         save_action.triggered.connect(self.save_deck)
@@ -2022,6 +2352,10 @@ class DeckEditorWindow(QMainWindow):
                 
                 self.current_deck_path = path
                 self.is_modified = False
+                
+                # Add to recent files
+                self.add_recent_file(path)
+                
                 self.update_title()
             except Exception as e:
                 QMessageBox.warning(self, tr("error", self.lang), f"{tr('load_error', self.lang)}: {str(e)}")
@@ -2065,6 +2399,125 @@ class DeckEditorWindow(QMainWindow):
             
         except Exception as e:
             QMessageBox.critical(self, "저장 오류", f"파일 저장 중 오류가 발생했습니다:\n{str(e)}")
+    
+    def load_recent_files(self) -> List[str]:
+        """Load recent files from encrypted dat file"""
+        dat_dir = get_data_path() / "dat"
+        recent_path = dat_dir / "recent.dat"
+        
+        if not recent_path.exists():
+            return []
+        
+        try:
+            with open(recent_path, "rb") as f:
+                encrypted = f.read()
+            data = decrypt_data(encrypted)
+            recent_files = data.get("recent_files", [])
+            
+            # Filter out non-existent files
+            return [f for f in recent_files if os.path.exists(f)][:5]
+        except Exception:
+            return []
+    
+    def save_recent_files(self):
+        """Save recent files to encrypted dat file"""
+        dat_dir = get_data_path() / "dat"
+        dat_dir.mkdir(exist_ok=True)
+        recent_path = dat_dir / "recent.dat"
+        
+        try:
+            data = {"recent_files": self.recent_files}
+            encrypted = encrypt_data(data)
+            
+            with open(recent_path, "wb") as f:
+                f.write(encrypted)
+        except Exception as e:
+            logger.error(f"Failed to save recent files: {e}")
+    
+    def add_recent_file(self, file_path: str):
+        """Add file to recent files list"""
+        # Remove if already exists
+        if file_path in self.recent_files:
+            self.recent_files.remove(file_path)
+        
+        # Add to front
+        self.recent_files.insert(0, file_path)
+        
+        # Keep only 5 recent files
+        self.recent_files = self.recent_files[:5]
+        
+        # Save and update menu
+        self.save_recent_files()
+        self.update_recent_menu()
+    
+    def update_recent_menu(self):
+        """Update recent files menu"""
+        self.recent_menu.clear()
+        
+        if not self.recent_files:
+            empty_action = QAction(tr("open_recent_empty", self.lang), self)
+            empty_action.setEnabled(False)
+            self.recent_menu.addAction(empty_action)
+        else:
+            for file_path in self.recent_files:
+                action = QAction(os.path.basename(file_path), self)
+                action.triggered.connect(lambda checked, p=file_path: self.open_recent_file(p))
+                self.recent_menu.addAction(action)
+            
+            self.recent_menu.addSeparator()
+            
+            clear_action = QAction(tr("open_recent_clear", self.lang), self)
+            clear_action.triggered.connect(self.clear_recent_files)
+            self.recent_menu.addAction(clear_action)
+    
+    def open_recent_file(self, file_path: str):
+        """Open a recent file"""
+        if not os.path.exists(file_path):
+            QMessageBox.warning(self, tr("error", self.lang), f"파일을 찾을 수 없습니다:\n{file_path}")
+            # Remove from recent files
+            self.recent_files.remove(file_path)
+            self.save_recent_files()
+            self.update_recent_menu()
+            return
+        
+        if self.is_modified:
+            reply = QMessageBox.question(
+                self,
+                tr("save_confirm_title", self.lang),
+                tr("save_confirm_body", self.lang),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                self.save_deck()
+            elif reply == QMessageBox.StandardButton.Cancel:
+                return
+        
+        try:
+            # Remove old temp file
+            self.cleanup_temp_file()
+            
+            # Copy deck file into temp file
+            self.load_temp_file(file_path)
+            
+            self.current_deck_path = file_path
+            self.is_modified = False
+            
+            # Move to front of recent files
+            self.add_recent_file(file_path)
+            
+            self.update_title()
+            
+            logger.info(LOG_MESSAGES["deck_loaded"])
+        except Exception as e:
+            QMessageBox.critical(self, "오류", f"덱 불러오기 실패:\n{e}")
+            logger.error(f"Failed to open recent file: {e}")
+    
+    def clear_recent_files(self):
+        """Clear recent files list"""
+        self.recent_files = []
+        self.save_recent_files()
+        self.update_recent_menu()
     
     def delete_selected_images(self):
         """Delete selected images"""
@@ -2573,7 +3026,7 @@ class DeckEditorWindow(QMainWindow):
         """Internal async loader for croquis list"""
         self.croquis_list.clear()
         
-        pairs_dir = Path(__file__).parent / "croquis_pairs"
+        pairs_dir = get_data_path() / "croquis_pairs"
         # if not pairs_dir.exists():
         #     no_data_item = QListWidgetItem(tr("croquis_not_found", self.lang))
         #     self.croquis_list.addItem(no_data_item)
@@ -2884,12 +3337,105 @@ class DeckEditorWindow(QMainWindow):
             """)
 
 
+# ============== Alarm Background Service (BAT File with ANSI) ==============
+def setup_alarm_background_service():
+    """BAT 파일을 ANSI 인코딩으로 생성하고 Windows 시작프로그램에 등록"""
+    try:
+        # 컴파일된 실행 파일만 등록
+        if not getattr(sys, 'frozen', False):
+            logger.info("Development mode - skipping background service setup")
+            return True
+        
+        exe_path = Path(sys.executable).resolve()
+        exe_dir = exe_path.parent
+        
+        # BAT 파일 생성 (1분마다 알람 체크) - ANSI(CP949) 인코딩
+        bat_content = f"""@echo off
+title Croquis Alarm Service
+cd /d "{exe_dir}"
+echo Starting Croquis Alarm Service...
+echo Log file: dat\\alarm_check.log
+:loop
+start /b /wait "" "{exe_path}" --check-alarm
+timeout /t 60 /nobreak >nul
+goto loop
+"""
+        
+        bat_path = exe_dir / "croquis_alarm_service.bat"
+        with open(bat_path, "w", encoding="cp949") as f:
+            f.write(bat_content)
+        
+        # VBS 파일 생성 (BAT를 보이지 않게 실행) - 상대 경로 사용
+        vbs_content = '''Set WshShell = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
+currentDir = fso.GetParentFolderName(WScript.ScriptFullName)
+WshShell.Run currentDir & "\\croquis_alarm_service.bat", 0, False
+Set WshShell = Nothing
+Set fso = Nothing
+'''
+        
+        vbs_path = exe_dir / "croquis_alarm_service.vbs"
+        with open(vbs_path, "w", encoding="cp949") as f:
+            f.write(vbs_content)
+        
+        # Windows 시작프로그램 폴더 경로
+        startup_folder = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        startup_link = startup_folder / "Croquis_Alarm.vbs"
+        
+        # 기존 링크 삭제
+        if startup_link.exists():
+            startup_link.unlink()
+        
+        # VBS 파일을 시작프로그램에 복사
+        import shutil
+        shutil.copy2(vbs_path, startup_link)
+        
+        logger.info(f"Alarm background service installed to startup folder")
+        return True
+        
+    except Exception as e:
+        logger.warning(f"Failed to setup alarm background service: {e}")
+        return False
+
+def remove_alarm_background_service():
+    """BAT 파일 및 시작프로그램 등록 제거"""
+    try:
+        exe_dir = get_data_path()
+        
+        # BAT, VBS, Python 파일 삭제
+        bat_path = exe_dir / "croquis_alarm_service.bat"
+        vbs_path = exe_dir / "croquis_alarm_service.vbs"
+        py_path = exe_dir / "croquis_alarm_background.py"
+        
+        if bat_path.exists():
+            bat_path.unlink()
+        if vbs_path.exists():
+            vbs_path.unlink()
+        if py_path.exists():
+            py_path.unlink()
+        
+        # 시작프로그램에서 제거
+        startup_folder = Path(os.environ["APPDATA"]) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        startup_link = startup_folder / "Croquis_Alarm.vbs"
+        
+        if startup_link.exists():
+            startup_link.unlink()
+        
+        logger.info("Alarm background service removed")
+        return True
+        
+    except Exception as e:
+        logger.warning(f"Failed to remove alarm background service: {e}")
+        return False
+
+
 # ============== History Window ==============
 class HistoryWindow(QDialog):
     """Dialog showing saved croquis history."""
     
     def __init__(self, lang: str = "ko", parent=None, dark_mode: bool = False):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())  # Set window icon
         self.lang = lang
         self.dark_mode = dark_mode
         
@@ -2906,6 +3452,9 @@ class HistoryWindow(QDialog):
     def setup_ui(self):
         self.setWindowTitle(tr("croquis_history", self.lang))
         self.resize(1000, 600)
+        
+        # Set window icon
+        self.setWindowIcon(get_app_icon())
         
         layout = QVBoxLayout(self)
         
@@ -2962,7 +3511,7 @@ class HistoryWindow(QDialog):
         
     def load_history(self):
         """Load saved croquis pairs."""
-        history_dir = Path(__file__).parent / "croquis_pairs"
+        history_dir = get_data_path() / "croquis_pairs"
         if not history_dir.exists():
             return
         
@@ -3187,6 +3736,7 @@ class CroquisLargeViewDialog(QDialog):
     
     def __init__(self, croquis_data: dict, lang: str = "ko", croquis_file_path: str = None, parent=None):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())
         self.croquis_data = croquis_data
         self.lang = lang
         self.croquis_file_path = croquis_file_path
@@ -3280,6 +3830,7 @@ class CroquisMemoDialog(QDialog):
     
     def __init__(self, croquis_file_path: str, lang: str = "ko", parent=None):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())
         self.croquis_file_path = croquis_file_path
         self.lang = lang
         self.setup_ui()
@@ -3376,19 +3927,21 @@ class AlarmWindow(QDialog):
         super().__init__(parent)
         self.lang = lang
         self.alarms = []
-        self.timers = []
         self.load_alarms()
         self.setup_ui()
-        self.start_alarm_timers()
+        # 백그라운드 알람은 Windows 작업 스케줄러에서 처리됨
         
     def setup_ui(self):
         self.setWindowTitle(tr("croquis_alarm", self.lang))
         self.resize(690, 500)
         
+        # Set window icon
+        self.setWindowIcon(get_app_icon())
+        
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 15, 15, 15)
         
-        # Alarm list
+        # Alarm list        cd dist        .\Croquis.exe
         list_label = QLabel(tr("alarm_list_label", self.lang))
         layout.addWidget(list_label)
         
@@ -3424,7 +3977,6 @@ class AlarmWindow(QDialog):
             self.alarms.append(alarm_data)
             self.save_alarms()
             self.refresh_alarm_list()
-            self.start_alarm_timers()
             
     def edit_alarm(self):
         """Edit the selected alarm."""
@@ -3440,7 +3992,6 @@ class AlarmWindow(QDialog):
             self.alarms[index] = dialog.get_alarm_data()
             self.save_alarms()
             self.refresh_alarm_list()
-            self.start_alarm_timers()
             
     def delete_alarm(self):
         """Delete the selected alarm."""
@@ -3452,7 +4003,6 @@ class AlarmWindow(QDialog):
         del self.alarms[index]
         self.save_alarms()
         self.refresh_alarm_list()
-        self.start_alarm_timers()
         
     def refresh_alarm_list(self):
         """Refresh the alarm list UI."""
@@ -3469,16 +4019,23 @@ class AlarmWindow(QDialog):
     
     def save_alarms(self):
         """Persist alarms to disk."""
-        dat_dir = Path(__file__).parent / "dat"
+        dat_dir = get_data_path() / "dat"
         dat_dir.mkdir(exist_ok=True)
         alarms_path = dat_dir / "alarms.dat"
         encrypted = encrypt_data({"alarms": self.alarms})
         with open(alarms_path, "wb") as f:
             f.write(encrypted)
+        
+        # BAT 파일 기반 백그라운드 서비스 자동 관리
+        if self.alarms:
+            setup_alarm_background_service()
+        else:
+            # 알람이 없으면 백그라운드 서비스 제거
+            remove_alarm_background_service()
     
     def load_alarms(self):
         """Load alarms from disk."""
-        dat_dir = Path(__file__).parent / "dat"
+        dat_dir = get_data_path() / "dat"
         alarms_path = dat_dir / "alarms.dat"
         if alarms_path.exists():
             try:
@@ -3490,51 +4047,6 @@ class AlarmWindow(QDialog):
                 self.alarms = []
         else:
             self.alarms = []
-    
-    def start_alarm_timers(self):
-        """Start alarm timers."""
-        # Stop existing timers
-        for timer in self.timers:
-            timer.stop()
-        self.timers.clear()
-        
-        # Start new timers
-        for alarm in self.alarms:
-            timer = QTimer()
-            timer.timeout.connect(lambda a=alarm: self.check_alarm(a))
-            timer.start(30000)  # 30초마다 체크
-            self.timers.append(timer)
-            
-            # Check immediately once
-            self.check_alarm(alarm)
-    
-    def check_alarm(self, alarm):
-        """Evaluate whether an alarm should trigger."""
-        now = QDateTime.currentDateTime()
-        current_time = now.time().toString("HH:mm")
-        current_date = now.date().toString("yyyy-MM-dd")
-        current_weekday = now.date().dayOfWeek() - 1  # 0=월요일
-        
-        should_alarm = False
-        
-        if alarm.get("type") == "weekday":
-            if current_weekday in alarm["weekdays"] and current_time == alarm["time"]:
-                should_alarm = True
-        else:
-            if current_date == alarm["date"] and current_time == alarm["time"]:
-                should_alarm = True
-        
-        if should_alarm:
-            self.show_toast(alarm["title"], alarm.get("message", ""))
-    
-    def show_toast(self, title: str, message: str):
-        """Display toast-style alarm message."""
-        msg = QMessageBox()
-        msg.setWindowTitle(title)
-        msg.setText(message)
-        msg.setIcon(QMessageBox.Icon.Information)
-        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg.exec()
 
 
 class AlarmEditDialog(QDialog):
@@ -3542,6 +4054,7 @@ class AlarmEditDialog(QDialog):
     
     def __init__(self, lang: str, parent=None, alarm_data=None):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())
         self.lang = lang
         self.alarm_data = alarm_data or {}
         self.setup_ui()
@@ -3649,7 +4162,8 @@ class AlarmEditDialog(QDialog):
             "title": self.title_input.text(),
             "message": self.message_input.toPlainText(),  # QTextEdit 사용
             "time": self.time_edit.time().toString("HH:mm"),
-            "type": alarm_type
+            "type": alarm_type,
+            "enabled": True  # 새 알람은 기본적으로 활성화
         }
         
         if alarm_type == "weekday":
@@ -3666,6 +4180,7 @@ class TagFilterDialog(QDialog):
     
     def __init__(self, deck_path: str, lang: str = "ko", parent=None):
         super().__init__(parent)
+        self.setWindowIcon(get_app_icon())
         self.deck_path = deck_path
         self.lang = lang
         self.all_tags: List[str] = []
@@ -3825,6 +4340,7 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
+        self.setWindowIcon(get_app_icon())  # Set main window icon
         self.settings = CroquisSettings()
         self.load_settings()
         self.lang = self.settings.language  # Add lang attribute
@@ -3887,10 +4403,12 @@ class MainWindow(QMainWindow):
         basic_layout.addLayout(folder_layout)
         
         self.select_deck_btn = QPushButton()
+        self.select_deck_btn.setMinimumHeight(32)
         self.select_deck_btn.clicked.connect(self.select_folder)
         basic_layout.addWidget(self.select_deck_btn)
         
         self.tag_filter_btn = QPushButton(tr("set_tags_filter", self.lang))
+        self.tag_filter_btn.setMinimumHeight(32)
         self.tag_filter_btn.clicked.connect(self.show_tag_filter_dialog)
         self.tag_filter_btn.setEnabled(False)  # Disabled until a deck is selected
         basic_layout.addWidget(self.tag_filter_btn)
@@ -4033,6 +4551,50 @@ class MainWindow(QMainWindow):
         self.dark_mode_check.stateChanged.connect(self.on_dark_mode_changed)
         other_layout.addWidget(self.dark_mode_check)
         
+        # Today's croquis count position
+        today_pos_layout = QHBoxLayout()
+        self.today_pos_label = QLabel()
+        self.today_pos_combo = QComboBox()
+        # Block signals during initialization to prevent logging
+        self.today_pos_combo.blockSignals(True)
+        self.today_pos_combo.addItems([
+            tr("bottom_right", self.lang), tr("bottom_center", self.lang), tr("bottom_left", self.lang),
+            tr("top_right", self.lang), tr("top_center", self.lang), tr("top_left", self.lang)
+        ])
+        # Set current value using internal settings
+        today_pos_map_init = {
+            "bottom_right": tr("bottom_right", self.lang),
+            "bottom_center": tr("bottom_center", self.lang),
+            "bottom_left": tr("bottom_left", self.lang),
+            "top_right": tr("top_right", self.lang),
+            "top_center": tr("top_center", self.lang),
+            "top_left": tr("top_left", self.lang)
+        }
+        self.today_pos_combo.setCurrentText(today_pos_map_init.get(self.settings.today_croquis_count_position, tr("top_right", self.lang)))
+        self.today_pos_combo.blockSignals(False)
+        # Connect signal after setting initial value
+        self.today_pos_combo.currentTextChanged.connect(self.on_today_pos_changed)
+        today_pos_layout.addWidget(self.today_pos_label)
+        today_pos_layout.addWidget(self.today_pos_combo, 1)
+        other_layout.addLayout(today_pos_layout)
+        
+        # Today's croquis count font size
+        today_font_layout = QHBoxLayout()
+        self.today_font_label = QLabel()
+        self.today_font_combo = QComboBox()
+        self.today_font_combo.addItems([
+            tr("font_large_20", self.lang),
+            tr("font_medium_15", self.lang),
+            tr("font_small_10", self.lang)
+        ])
+        # Set current value
+        font_map = {"large": tr("font_large_20", self.lang), "medium": tr("font_medium_15", self.lang), "small": tr("font_small_10", self.lang)}
+        self.today_font_combo.setCurrentText(font_map.get(self.settings.today_croquis_count_font_size, tr("font_medium_15", self.lang)))
+        self.today_font_combo.currentTextChanged.connect(self.on_today_font_changed)
+        today_font_layout.addWidget(self.today_font_label)
+        today_font_layout.addWidget(self.today_font_combo, 1)
+        other_layout.addLayout(today_font_layout)
+        
         right_column.addWidget(other_group)
         right_column.addStretch()
         
@@ -4045,22 +4607,22 @@ class MainWindow(QMainWindow):
         
         self.start_btn = QPushButton()
         self.start_btn.setEnabled(False)
-        self.start_btn.setMinimumHeight(40)
+        self.start_btn.setMinimumHeight(32)
         self.start_btn.clicked.connect(self.start_croquis)
         button_layout.addWidget(self.start_btn)
         
         self.edit_deck_btn = QPushButton()
-        self.edit_deck_btn.setMinimumHeight(40)
+        self.edit_deck_btn.setMinimumHeight(32)
         self.edit_deck_btn.clicked.connect(self.open_deck_editor)
         button_layout.addWidget(self.edit_deck_btn)
         
         self.history_btn = QPushButton()
-        self.history_btn.setMinimumHeight(40)
+        self.history_btn.setMinimumHeight(32)
         self.history_btn.clicked.connect(self.open_history)
         button_layout.addWidget(self.history_btn)
         
         self.alarm_btn = QPushButton()
-        self.alarm_btn.setMinimumHeight(40)
+        self.alarm_btn.setMinimumHeight(32)
         self.alarm_btn.clicked.connect(self.open_alarm)
         button_layout.addWidget(self.alarm_btn)
         
@@ -4129,6 +4691,29 @@ class MainWindow(QMainWindow):
         self.other_group.setTitle(tr("other_settings", self.lang))
         self.lang_label.setText(tr("language", self.lang))
         self.dark_mode_check.setText(tr("dark_mode", self.lang))
+        
+        # Today's croquis count position
+        self.today_pos_label.setText(tr("today_croquis_count_position", self.lang))
+        current_today_pos = self.settings.today_croquis_count_position
+        self.today_pos_combo.blockSignals(True)
+        self.today_pos_combo.clear()
+        self.today_pos_combo.addItems([
+            tr("bottom_right", self.lang), tr("bottom_center", self.lang), tr("bottom_left", self.lang),
+            tr("top_right", self.lang), tr("top_center", self.lang), tr("top_left", self.lang)
+        ])
+        self.today_pos_combo.setCurrentText(tr(current_today_pos, self.lang))
+        self.today_pos_combo.blockSignals(False)
+        
+        # Today's croquis count font size
+        self.today_font_label.setText(tr("today_croquis_count_font_size", self.lang))
+        self.today_font_combo.clear()
+        self.today_font_combo.addItems([
+            tr("font_large_20", self.lang),
+            tr("font_medium_15", self.lang),
+            tr("font_small_10", self.lang)
+        ])
+        today_font_map = {"large": 0, "medium": 1, "small": 2}
+        self.today_font_combo.setCurrentIndex(today_font_map.get(self.settings.today_croquis_count_font_size, 1))
         
         # Buttons
         self.start_btn.setText(tr("start_croquis", self.lang))
@@ -4369,6 +4954,30 @@ class MainWindow(QMainWindow):
         if old_size != self.settings.timer_font_size:
             logger.info(LOG_MESSAGES["timer_font_size_changed"].format(self.settings.timer_font_size))
         self.save_settings()
+    
+    def on_today_pos_changed(self, text: str):
+        # Map translated text to internal position value
+        pos_map = {
+            tr("bottom_right", self.lang): "bottom_right",
+            tr("bottom_center", self.lang): "bottom_center",
+            tr("bottom_left", self.lang): "bottom_left",
+            tr("top_right", self.lang): "top_right",
+            tr("top_center", self.lang): "top_center",
+            tr("top_left", self.lang): "top_left"
+        }
+        internal_value = pos_map.get(text, "top_right")
+        self.settings.today_croquis_count_position = internal_value
+        self.save_settings()
+    
+    def on_today_font_changed(self, text: str):
+        # Map translated text to internal font size value
+        font_map = {
+            tr("font_large_20", self.lang): "large",
+            tr("font_medium_15", self.lang): "medium",
+            tr("font_small_10", self.lang): "small"
+        }
+        self.settings.today_croquis_count_font_size = font_map.get(text, "medium")
+        self.save_settings()
         
     def on_time_changed(self, value: int):
         self.settings.time_seconds = value
@@ -4433,7 +5042,7 @@ class MainWindow(QMainWindow):
         
     def on_croquis_completed(self):
         """Handle croquis completion event."""
-        self.heatmap_widget.add_croquis(1)
+        # Don't add count here - it's added in on_croquis_saved
         count = self.heatmap_widget.total_count
         self.heatmap_group.setTitle(
             f"{tr('heatmap_title', self.lang)} - "
@@ -4443,7 +5052,7 @@ class MainWindow(QMainWindow):
     def on_croquis_saved(self, original: QPixmap, screenshot: QPixmap, croquis_time: int, image_filename: str, image_metadata: dict):
         """Persist croquis pair when saved."""
         # Save as encrypted file
-        pairs_dir = Path(__file__).parent / "croquis_pairs"
+        pairs_dir = get_data_path() / "croquis_pairs"
         pairs_dir.mkdir(exist_ok=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -4524,7 +5133,7 @@ class MainWindow(QMainWindow):
         
     def load_settings(self):
         """Load settings from disk."""
-        dat_dir = Path(__file__).parent / "dat"
+        dat_dir = get_data_path() / "dat"
         dat_dir.mkdir(exist_ok=True)
         settings_path = dat_dir / "settings.dat"
         if settings_path.exists():
@@ -4543,7 +5152,7 @@ class MainWindow(QMainWindow):
                 
     def save_settings(self):
         """Persist settings to disk."""
-        dat_dir = Path(__file__).parent / "dat"
+        dat_dir = get_data_path() / "dat"
         dat_dir.mkdir(exist_ok=True)
         settings_path = dat_dir / "settings.dat"
         encrypted = encrypt_data(asdict(self.settings))
@@ -4557,6 +5166,11 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    # --check-alarm 인수로 실행된 경우 알람만 확인하고 종료
+    if len(sys.argv) > 1 and sys.argv[1] == "--check-alarm":
+        check_and_trigger_alarms()
+        sys.exit(0)
+    
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     
