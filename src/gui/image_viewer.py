@@ -202,25 +202,25 @@ class ImageViewerWindow(QWidget):
         
         # Icon buttons
         self.prev_btn = QPushButton()
-        self.prev_btn.setIcon(resource_loader.get_icon("/buttons/?´ì „.png"))
+        self.prev_btn.setIcon(resource_loader.get_icon("/buttons/?ï¿½ì „.png"))
         self.prev_btn.setIconSize(QSize(24, 24))
         self.prev_btn.setToolTip(tr("previous", self.lang))
         self.prev_btn.clicked.connect(self.previous_image)
         
         self.pause_btn = QPushButton()
-        self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?¼ì‹œ ?•ì?.png"))
+        self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?ï¿½ì‹œ ?ï¿½ï¿½?.png"))
         self.pause_btn.setIconSize(QSize(24, 24))
         self.pause_btn.setToolTip(tr("pause", self.lang))
         self.pause_btn.clicked.connect(self.toggle_pause)
         
         self.next_btn = QPushButton()
-        self.next_btn.setIcon(resource_loader.get_icon("/buttons/?¤ìŒ.png"))
+        self.next_btn.setIcon(resource_loader.get_icon("/buttons/?ï¿½ìŒ.png"))
         self.next_btn.setIconSize(QSize(24, 24))
         self.next_btn.setToolTip(tr("next", self.lang))
         self.next_btn.clicked.connect(self.next_image_no_screenshot)
         
         self.stop_btn = QPushButton()
-        self.stop_btn.setIcon(resource_loader.get_icon("/buttons/?•ì?.png"))
+        self.stop_btn.setIcon(resource_loader.get_icon("/buttons/?ï¿½ï¿½?.png"))
         self.stop_btn.setIconSize(QSize(24, 24))
         self.stop_btn.setToolTip(tr("stop", self.lang))
         self.stop_btn.clicked.connect(self.stop_croquis)
@@ -561,10 +561,10 @@ class ImageViewerWindow(QWidget):
         # Swap play/pause icon
         resource_loader = QtResourceLoader()
         if self.paused:
-            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?¬ìƒ.png"))
+            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?ï¿½ìƒ.png"))
             self.pause_btn.setToolTip(tr("play", self.lang))
         else:
-            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?¼ì‹œ ?•ì?.png"))
+            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?ï¿½ì‹œ ?ï¿½ï¿½?.png"))
             self.pause_btn.setToolTip(tr("pause", self.lang))
             if self.remaining_time == 0:
                 self.next_image()
