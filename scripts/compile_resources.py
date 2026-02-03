@@ -6,13 +6,20 @@ resources.qrc를 resources_rc.py로 컴파일 (PyQt6 호환)
 import base64
 import xml.etree.ElementTree as ET
 from pathlib import Path
+import sys
 
 def compile_resources():
     """Qt 리소스 파일을 Python 모듈로 컴파일"""
-    qrc_file = Path(__file__).parent / "resources.qrc"
-    output_file = Path(__file__).parent / "resources_rc.py"
+    # 프로젝트 루트에서 실행
+    project_root = Path(__file__).parent.parent
+    qrc_file = project_root / "src" / "assets" / "resources.qrc"
+    output_file = project_root / "src" / "assets" / "resources_rc.py"
     
     print(f"Compiling {qrc_file} -> {output_file}")
+    
+    if not qrc_file.exists():
+        print(f"Error: {qrc_file} not found")
+        sys.exit(1)
     
     try:
         # QRC 파일 파싱
@@ -30,8 +37,8 @@ def compile_resources():
                 file_path = file_elem.text
                 resource_name = f"{prefix}/{file_path.split('/')[-1]}"
                 
-                # 실제 파일 경로
-                actual_path = Path(__file__).parent / file_path
+                # 실제 파일 경로 (src/assets 기준)
+                actual_path = project_root / "src" / "assets" / file_path
                 
                 if not actual_path.exists():
                     print(f"  Warning: File not found: {actual_path}")

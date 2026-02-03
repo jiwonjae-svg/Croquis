@@ -1,102 +1,165 @@
-# Croquis Practice App
+# Croquis - 크로키 연습 프로그램
 
-A PyQt6 desktop app for timed croquis practice. Manage image decks, run timed drawing sessions, review history with overlays, and keep memos. Resources are bundled and encrypted for portability.
+크로키 연습을 위한 데스크톱 애플리케이션입니다. 이미지 덱을 관리하고 타이머를 설정하여 체계적인 드로잉 연습을 할 수 있습니다.
 
-## Features
-- Deck management: add/import images, rename, tag, delete, and edit decks.
-- Timed croquis sessions: play/pause/next/previous with configurable timer position and font size.
-- History viewer: side-by-side original and croquis thumbnails with duration overlays and memo support.
-- Deck editor overlays: thumbnails show drawing duration, date labels, and memo tooltips.
-- Memos: per-croquis memo dialog for notes.
-- Localization: Korean, English, Japanese (extensible via translations dictionary).
-- **Qt Resource System**: embedded button images and translations using Qt's `.qrc` format.
-- Logging: centralized English log messages with rotation per day.
+## 주요 기능
+
+- **덱 관리**: 이미지 폴더를 덱으로 등록하고 관리
+- **타이머 기능**: 크로키 시간을 설정하고 자동으로 이미지 전환
+- **다국어 지원**: 한국어/영어 지원
+- **알람 기능**: 설정한 시간에 크로키 연습 알림
+- **연습 히스토리**: 크로키 연습 기록 자동 저장 및 통계 제공
+- **보안**: 사용자별 암호화된 데이터 저장
+- **Qt 리소스 시스템**: `.qrc` 형식으로 버튼 이미지와 번역 파일 관리
 
 ## Qt Resource System
+## 설치 및 실행
 
-This application uses Qt Resource System (.qrc) for managing button images and translation files.
+### 요구사항
 
-### Compiling Resources
+- Python 3.10 이상
+- Windows 10/11 (알림 기능 지원)
 
-When you modify resources (button images or translations), recompile them:
+### 설치
 
 ```bash
-python compile_resources.py
+# 저장소 클론
+git clone <repository-url>
+cd Croquis2
+
+# 의존성 설치
+pip install -r requirements.txt
 ```
 
-This reads `resources.qrc` and generates `resources_rc.py` module.
+### 실행
 
-### Resource Usage
+```bash
+python run.py
+```
+
+### 빌드 (실행 파일 생성)
+
+```bash
+python scripts/compile_resources.py  # Qt 리소스 컴파일
+pyinstaller Croquis.spec             # 실행 파일 빌드
+```
+
+빌드된 실행 파일은 `dist/Croquis/` 폴더에 생성됩니다.
+
+## 프로젝트 구조
+
+```
+Croquis2/
+├── src/                      # 소스 코드
+│   ├── core/                 # 핵심 기능
+│   │   └── key_manager.py    # 암호화 키 관리
+│   ├── gui/                  # GUI 컴포넌트
+│   │   └── image_viewer.py   # 이미지 뷰어 윈도우
+│   ├── utils/                # 유틸리티
+│   │   ├── language_manager.py    # 다국어 지원
+│   │   ├── log_manager.py         # 로깅 시스템
+│   │   └── qt_resource_loader.py  # Qt 리소스 로더
+│   ├── assets/               # 리소스 파일
+│   │   ├── btn/              # 버튼 이미지
+│   │   ├── icon.ico          # 앱 아이콘
+│   │   ├── resources.qrc     # Qt 리소스 정의
+│   │   └── resources_rc.py   # 컴파일된 리소스
+│   └── main.py               # 메인 애플리케이션
+├── scripts/                  # 빌드 스크립트
+│   ├── compile.py            # 전체 빌드 스크립트
+│   └── compile_resources.py  # Qt 리소스 컴파일
+├── data/                     # 사용자 데이터 (생성됨)
+├── logs/                     # 로그 파일 (생성됨)
+├── run.py                    # 진입점
+├── requirements.txt          # Python 의존성
+└── Croquis.spec             # PyInstaller 설정
+```
+
+## 보안 기능
+
+- **동적 암호화 키**: 사용자 환경(PC UUID + OS 사용자명)에 기반한 고유 키 생성
+- **데이터 암호화**: 덱 정보 및 설정이 암호화되어 저장
+- **사용자 격리**: 각 사용자는 자신의 암호화된 데이터에만 접근 가능
+
+## 사용 방법
+
+1. **덱 생성**: 메인 화면에서 '편집' 버튼으로 덱 에디터 열기
+2. **이미지 추가**: 폴더 선택 또는 개별 이미지 추가
+3. **크로키 시작**: 덱 선택 후 시간 설정, '시작' 버튼 클릭
+4. **단축키**:
+   - `Space`: 재생/일시정지
+   - `N`: 다음 이미지
+   - `P`: 이전 이미지
+   - `F11`: 전체화면 토글
+   - `Esc`: 종료
+
+## Qt 리소스 시스템
+
+### 리소스 컴파일
+
+리소스 파일(버튼 이미지, 번역 파일)을 수정한 경우:
+
+```bash
+python scripts/compile_resources.py
+```
+
+[resources.qrc](src/assets/resources.qrc)를 읽어 [resources_rc.py](src/assets/resources_rc.py) 모듈을 생성합니다.
+
+### 리소스 사용 예제
 
 ```python
-from qt_resource_loader import QtResourceLoader
+from utils.qt_resource_loader import QtResourceLoader
 
 loader = QtResourceLoader()
 
-# Load images
+# 이미지 로드
 pixmap = loader.get_pixmap(":/buttons/정지.png")
 icon = loader.get_icon(":/buttons/재생.png")
 
-# Read CSV file
+# CSV 파일 읽기
 csv_data = loader.read_text_file(":/data/translations.csv")
 
-# Check resource existence
+# 리소스 존재 확인
 if loader.resource_exists(":/buttons/정지.png"):
-    print("Resource exists!")
+    print("리소스 존재!")
 ```
 
-### Resource Structure
+### PyInstaller 배포 시 주의사항
 
-- `:/buttons/` - Button images (Stop, Play, Pause, Previous, Next)
-- `:/data/` - Translation CSV file (translations.csv)
+다음 파일들은 배포 시 포함되지 않아도 됩니다 (모두 `resources_rc.py`에 임베딩됨):
+- `resources.qrc` (소스 정의 파일)
+- `compile_resources.py` (빌드 도구)
+- `btn/` 폴더의 버튼 이미지들
+- `translations.csv`
 
-## Installation
-1. Python 3.11+ recommended.
-2. Create and activate a virtual environment:
-   ```bash
-   python -m venv .venv
-   .venv\\Scripts\\activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-   (If `requirements.txt` is missing, install PyQt6 and cryptography: `pip install PyQt6 cryptography`.)
+## 기술 스택
 
-## Running
-```bash
-python main.py
-```
+- **GUI Framework**: PyQt6
+- **암호화**: cryptography (Fernet)
+- **알림**: win11toast, plyer
+- **빌드**: PyInstaller
 
-## Decks and Data
-- Croquis pairs are stored under `croquis_pairs/` with encrypted `.croq` files.
-- Deck files use the `.crdk` extension and live alongside your images.
-- Logs are written to `logs/croquis_YYYYMMDD.log`.
+## 문제 해결
 
-## History and Overlays
-- History thumbnails show original (left) and croquis (right) with duration overlays.
-- Deck editor thumbnails display per-croquis duration at bottom right plus date labels.
+### 알림이 작동하지 않는 경우
+- Windows 11: '알림' 설정에서 앱 알림 권한 확인
+- Windows 10: 'win11toast' 대신 'plyer' 백업 알림 사용
 
-## Localization
-Strings are served via the `TRANSLATIONS` dictionary in `main.py`. Add new keys there for additional locales. Logging strings are centralized in `LOG_MESSAGES`.
+### 실행 파일이 바이러스로 탐지되는 경우
+- PyInstaller로 빌드된 실행 파일은 오탐지될 수 있습니다
+- 소스 코드를 직접 실행(`python run.py`)하거나 백신 예외 처리 추가
 
-## Notes on Alarm Guide
-`ALARM_SERVICE_GUIDE.md` is a design note. Alarm functions are not fully implemented in `main.py`; implement `load_alarms` and `decrypt_data` there before using the guide.
+### 이미지가 로드되지 않는 경우
+- 덱 경로가 유효한지 확인
+- 지원 형식: JPG, PNG, BMP, GIF
 
-## Troubleshooting
-- If durations do not show on thumbnails, ensure the croquis data include `croquis_time` and reload the deck.
-- For UI language issues, confirm the `TRANSLATIONS` entries cover all keys used in `tr()` calls.
-- If button icons do not appear, run `python compile_resources.py` to rebuild Qt resources.
+### 버튼 아이콘이 표시되지 않는 경우
+- `python scripts/compile_resources.py`로 Qt 리소스 재컴파일
 
-## PyInstaller Deployment
+## 라이선스
 
-When building with PyInstaller, the following files are NOT needed in the distribution:
-- `resources.qrc` (source definition file)
-- `compile_resources.py` (build tool)
-- Button image files in `btn/` folder (embedded in `resources_rc.py`)
-- `translations.csv` (embedded in `resources_rc.py`)
+이 프로젝트는 개인 사용 목적으로 제작되었습니다.
 
-The `resources_rc.py` module contains all embedded resources and will be included automatically by PyInstaller.
+## 개발자 정보
 
-## License
-Internal use only. Add your license details here if you plan to distribute.
+버전: 2.0.0

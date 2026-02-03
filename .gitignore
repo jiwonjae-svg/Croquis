@@ -35,13 +35,23 @@ env/
 .DS_Store
 Thumbs.db
 
-# Project specific
+# Project specific - User Data
+data/
 dat/
-logs/
 temp/
 croquis_pairs/
+deck/
+
+# Project specific - Build
 build/
 dist/
+
+# Project specific - Logs
+logs/
+*.log
+
+# Legacy files (root level main.py kept for reference)
+main.py
 
 # Exclude markdown files except README
 *.md

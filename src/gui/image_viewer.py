@@ -21,9 +21,9 @@ from PyQt6.QtGui import (
     QPixmap, QImage, QTransform, QFont, QGuiApplication, QMouseEvent
 )
 
-# Import shared utilities
-from key_manager import decrypt_data
-from qt_resource_loader import QtResourceLoader
+# Import shared utilities from parent package
+from core.key_manager import decrypt_data
+from utils.qt_resource_loader import QtResourceLoader
 
 # Get logger
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ def get_app_icon():
 
 def tr(key: str, lang: str) -> str:
     """Translation helper"""
-    from language_manager import TRANSLATIONS
+    from utils.language_manager import TRANSLATIONS
     return TRANSLATIONS.get(key, {}).get(lang, key)
 
 
@@ -95,7 +95,7 @@ class ImageViewerWindow(QWidget):
         for img in images:
             if isinstance(img, dict):
                 difficulty = img.get("difficulty", 1)
-                # Weight as difficulty^2 (1→1, 2→4, 3→9, 4→16, 5→25)
+                # Weight as difficulty^2 (1??, 2??, 3??, 4??6, 5??5)
                 weight = difficulty * difficulty
                 weights.append(weight)
             else:
@@ -202,25 +202,25 @@ class ImageViewerWindow(QWidget):
         
         # Icon buttons
         self.prev_btn = QPushButton()
-        self.prev_btn.setIcon(resource_loader.get_icon("/buttons/이전.png"))
+        self.prev_btn.setIcon(resource_loader.get_icon("/buttons/?�전.png"))
         self.prev_btn.setIconSize(QSize(24, 24))
         self.prev_btn.setToolTip(tr("previous", self.lang))
         self.prev_btn.clicked.connect(self.previous_image)
         
         self.pause_btn = QPushButton()
-        self.pause_btn.setIcon(resource_loader.get_icon("/buttons/일시 정지.png"))
+        self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?�시 ?��?.png"))
         self.pause_btn.setIconSize(QSize(24, 24))
         self.pause_btn.setToolTip(tr("pause", self.lang))
         self.pause_btn.clicked.connect(self.toggle_pause)
         
         self.next_btn = QPushButton()
-        self.next_btn.setIcon(resource_loader.get_icon("/buttons/다음.png"))
+        self.next_btn.setIcon(resource_loader.get_icon("/buttons/?�음.png"))
         self.next_btn.setIconSize(QSize(24, 24))
         self.next_btn.setToolTip(tr("next", self.lang))
         self.next_btn.clicked.connect(self.next_image_no_screenshot)
         
         self.stop_btn = QPushButton()
-        self.stop_btn.setIcon(resource_loader.get_icon("/buttons/정지.png"))
+        self.stop_btn.setIcon(resource_loader.get_icon("/buttons/?��?.png"))
         self.stop_btn.setIconSize(QSize(24, 24))
         self.stop_btn.setToolTip(tr("stop", self.lang))
         self.stop_btn.clicked.connect(self.stop_croquis)
@@ -426,7 +426,7 @@ class ImageViewerWindow(QWidget):
                         QTimer.singleShot(150, self.start_screenshot_mode)
                 
     def start_screenshot_mode(self):
-        from log_manager import LOG_MESSAGES
+        from utils.log_manager import LOG_MESSAGES
         logger.info(LOG_MESSAGES["screenshot_mode_enabled"])
         self.screenshot_overlay.start_capture()
         
@@ -480,13 +480,13 @@ class ImageViewerWindow(QWidget):
             self.start_screenshot_mode()
             
     def on_screenshot_cancelled(self):
-        from log_manager import LOG_MESSAGES
+        from utils.log_manager import LOG_MESSAGES
         logger.info(LOG_MESSAGES["screenshot_mode_cancelled"])
         self.start_screenshot_mode()
         
     def save_croquis_pair(self, screenshot: QPixmap):
         """Save the croquis image pair with encryption"""
-        from log_manager import LOG_MESSAGES
+        from utils.log_manager import LOG_MESSAGES
         logger.info(LOG_MESSAGES["croquis_pair_saved"])
         # Calculate croquis duration
         if self.settings.study_mode:
@@ -522,7 +522,7 @@ class ImageViewerWindow(QWidget):
         self.croquis_saved.emit(self.current_pixmap, screenshot, croquis_time, image_filename, image_metadata)
         
     def previous_image(self):
-        from log_manager import LOG_MESSAGES
+        from utils.log_manager import LOG_MESSAGES
         logger.info(LOG_MESSAGES["croquis_previous"])
         if self.settings.study_mode:
             # Study mode: switch to screenshot capture
@@ -534,7 +534,7 @@ class ImageViewerWindow(QWidget):
             self.timer.start(1000)
             
     def next_image(self):
-        from log_manager import LOG_MESSAGES
+        from utils.log_manager import LOG_MESSAGES
         logger.info(LOG_MESSAGES["croquis_next"])
         if self.current_index < len(self.images) - 1:
             self.current_index += 1
@@ -554,23 +554,23 @@ class ImageViewerWindow(QWidget):
             self.next_image()
         
     def toggle_pause(self):
-        from log_manager import LOG_MESSAGES
+        from utils.log_manager import LOG_MESSAGES
         self.paused = not self.paused
         logger.info(LOG_MESSAGES["croquis_paused" if self.paused else "croquis_playing"])
         
         # Swap play/pause icon
         resource_loader = QtResourceLoader()
         if self.paused:
-            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/재생.png"))
+            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?�생.png"))
             self.pause_btn.setToolTip(tr("play", self.lang))
         else:
-            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/일시 정지.png"))
+            self.pause_btn.setIcon(resource_loader.get_icon("/buttons/?�시 ?��?.png"))
             self.pause_btn.setToolTip(tr("pause", self.lang))
             if self.remaining_time == 0:
                 self.next_image()
                 
     def stop_croquis(self):
-        from log_manager import LOG_MESSAGES
+        from utils.log_manager import LOG_MESSAGES
         logger.info(LOG_MESSAGES["croquis_stopped"])
         if hasattr(self, 'timer') and self.timer:
             self.timer.stop()
@@ -585,7 +585,7 @@ class ImageViewerWindow(QWidget):
     
     def closeEvent(self, event):
         """Handle window close event"""
-        from log_manager import LOG_MESSAGES
+        from utils.log_manager import LOG_MESSAGES
         logger.info(LOG_MESSAGES["croquis_window_closed"])
         if hasattr(self, 'timer') and self.timer:
             self.timer.stop()

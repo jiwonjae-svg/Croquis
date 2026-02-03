@@ -6,14 +6,21 @@ Qt 리소스 로더 모듈
 from PyQt6.QtGui import QPixmap, QIcon
 from PyQt6.QtCore import QByteArray
 import logging
+import sys
+from pathlib import Path
 
 # 리소스 모듈 import (compile_resources.py 실행 후 생성됨)
+# src/assets 디렉토리를 sys.path에 추가
+assets_dir = Path(__file__).parent.parent / "assets"
+if str(assets_dir) not in sys.path:
+    sys.path.insert(0, str(assets_dir))
+
 try:
     import resources_rc
     RESOURCES_AVAILABLE = True
 except ImportError:
     RESOURCES_AVAILABLE = False
-    print("Warning: resources_rc.py not found. Run 'python compile_resources.py' first.")
+    print("Warning: resources_rc.py not found. Run 'python scripts/compile_resources.py' first.")
 
 logger = logging.getLogger('Croquis')
 
