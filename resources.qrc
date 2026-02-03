@@ -1,0 +1,16 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/buttons">
+        <file>btn/정지.png</file>
+        <file>btn/재생.png</file>
+        <file>btn/일시 정지.png</file>
+        <file>btn/이전.png</file>
+        <file>btn/다음.png</file>
+    </qresource>
+    <qresource prefix="/data">
+        <file>translations.csv</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file>icon.ico</file>
+    </qresource>
+</RCC>
