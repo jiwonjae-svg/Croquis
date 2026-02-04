@@ -7,7 +7,7 @@ DO NOT EDIT MANUALLY
 """
 
 import base64
-from PyQt6.QtCore import QFile, QIODevice
+from PyQt6.QtCore import QResource
 
 # Resource data
 _RESOURCES = {
@@ -27,7 +27,6 @@ def qInitResources():
 def qCleanupResources():
     """Cleanup Qt resources"""
     pass
-
 def get_resource_data(resource_path: str) -> bytes:
     """Get resource data by path (e.g., ":/buttons/정지.png")"""
     # Remove :/ prefix if present

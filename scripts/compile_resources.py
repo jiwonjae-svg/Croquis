@@ -52,7 +52,7 @@ def compile_resources():
                 resources[resource_name] = encoded
                 print(f"  Added: {resource_name} ({len(file_data)} bytes)")
         
-        # Python 모듈 생성
+            # Python 모듈 생성
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write('# -*- coding: utf-8 -*-\n\n')
             f.write('"""\n')
@@ -61,7 +61,7 @@ def compile_resources():
             f.write('DO NOT EDIT MANUALLY\n')
             f.write('"""\n\n')
             f.write('import base64\n')
-            f.write('from PyQt6.QtCore import QFile, QIODevice\n\n')
+            f.write('from PyQt6.QtCore import QResource\n\n')
             f.write('# Resource data\n')
             f.write('_RESOURCES = {\n')
             
@@ -70,14 +70,14 @@ def compile_resources():
             
             f.write('}\n\n')
             
-            # 리소스 등록 함수
+            # 리소스 등록 함수 - Not needed anymore, we access _RESOURCES directly
             f.write('def qInitResources():\n')
             f.write('    """Initialize Qt resources"""\n')
             f.write('    pass\n\n')
             
             f.write('def qCleanupResources():\n')
             f.write('    """Cleanup Qt resources"""\n')
-            f.write('    pass\n\n')
+            f.write('    pass\n')
             
             f.write('def get_resource_data(resource_path: str) -> bytes:\n')
             f.write('    """Get resource data by path (e.g., ":/buttons/정지.png")"""\n')

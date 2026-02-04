@@ -3882,6 +3882,14 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     
+    # Import resources_rc after QApplication is created
+    if getattr(sys, 'frozen', False):
+        try:
+            from assets import resources_rc
+            logger.info("Qt resources loaded successfully")
+        except ImportError:
+            logger.warning("Failed to import Qt resources")
+    
     # Load QSS stylesheet
     qss_path = Path(__file__).parent / "assets" / "style.qss"
     if qss_path.exists():

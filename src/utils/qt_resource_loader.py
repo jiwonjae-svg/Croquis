@@ -22,9 +22,15 @@ if str(assets_dir) not in sys.path:
 try:
     import resources_rc  # type: ignore[import-not-found]
     RESOURCES_AVAILABLE = True
+    # Get the _RESOURCES dictionary
+    if hasattr(resources_rc, '_RESOURCES'):
+        _RESOURCES_DICT = resources_rc._RESOURCES
+    else:
+        _RESOURCES_DICT = {}
     logger.info("Qt resources_rc module loaded successfully")
 except ImportError as e:
     RESOURCES_AVAILABLE = False
+    _RESOURCES_DICT = {}
     logger.warning(f"resources_rc.py not found: {e}. Run 'python scripts/compile_resources.py' first.")
 
 
@@ -101,6 +107,17 @@ class QtResourceLoader:
             return self._read_file_fallback(resource_path, encoding)
         
         try:
+            # First try: Load from _RESOURCES_DICT directly
+            # Strip : prefix to match dictionary keys (keep the leading /)
+            dict_key = resource_path[1:] if resource_path.startswith(":") else resource_path
+            
+            if dict_key in _RESOURCES_DICT:
+                import base64
+                encoded_data = _RESOURCES_DICT[dict_key]
+                data = base64.b64decode(encoded_data.encode('ascii'))
+                return data.decode(encoding)
+            
+            # Second try: QFile (for compatibility)
             qfile = QFile(resource_path)
             if not qfile.exists():
                 logger.warning(f"Resource not found: {resource_path}")
