@@ -20,7 +20,7 @@ if str(assets_dir) not in sys.path:
 
 # Try to import compiled resources
 try:
-    import resources_rc
+    import resources_rc  # type: ignore[import-not-found]
     RESOURCES_AVAILABLE = True
     logger.info("Qt resources_rc module loaded successfully")
 except ImportError as e:
