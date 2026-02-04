@@ -7,7 +7,6 @@ a = Analysis(
     binaries=[],
     datas=[
         ('dat', 'dat'),
-        ('translations.csv', '.'),
         ('src/assets/icon.ico', '.'),
         ('src', 'src'),
     ],
