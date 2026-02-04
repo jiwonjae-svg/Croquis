@@ -103,3 +103,9 @@ repomix-output.xml
 OPTIMIZATION_NOTES.md
 REFACTORING_REPORT.md
 ALARM_SERVICE_GUIDE.md
+
+# Installer files
+setup.iss
+RELEASE_NOTES.md
+installer/
+*.exe

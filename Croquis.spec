@@ -3,12 +3,13 @@
 
 a = Analysis(
     ['main.py'],
-    pathex=[],
+    pathex=['src'],
     binaries=[],
     datas=[
         ('dat', 'dat'),
         ('translations.csv', '.'),
         ('src/assets/icon.ico', '.'),
+        ('src', 'src'),
     ],
     hiddenimports=[
         'PyQt6.QtCore',
@@ -18,7 +19,19 @@ a = Analysis(
         'PIL.Image',
         'win11toast',
         'plyer',
-        'asyncio'
+        'asyncio',
+        'core',
+        'core.models',
+        'core.key_manager',
+        'core.alarm_service',
+        'gui',
+        'gui.widgets',
+        'gui.image_viewer_window',
+        'utils',
+        'utils.helpers',
+        'utils.language_manager',
+        'utils.log_manager',
+        'utils.qt_resource_loader',
     ],
     hookspath=[],
     hooksconfig={},
